@@ -780,7 +780,17 @@ def score_experiment(
             )
             reports.append(report)
 
-    comparison = build_comparison(reports, suite=suite)
+    # build_comparison stamps the evidence protocol version; the epoch identity and
+    # the experiment protocol version are added so one comparison file is
+    # self-describing for the longitudinal report.
+    comparison = {
+        "experiment_id": epoch.experiment_id,
+        "experiment_protocol_version": EXPERIMENT_PROTOCOL_VERSION,
+        "training_edition": epoch.training_edition,
+        "truth_edition": epoch.truth_edition,
+        "preregistration_hash": prereg_hash,
+        **build_comparison(reports, suite=suite),
+    }
     (experiment_dir / COMPARISON_JSON_NAME).write_text(
         canonical_json(comparison) + "\n", encoding="utf-8"
     )
