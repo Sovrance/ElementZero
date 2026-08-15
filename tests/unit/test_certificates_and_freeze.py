@@ -15,7 +15,7 @@ def test_freeze_serialization_contains_commits():
             uncertainty_keV=0.1,
             source_edition="AME2003",
             source_release_date="2003-12-22",
-            source_record_status="experimental",
+            source_record_status="evaluated_non_estimated",
             raw_source_hash="11" * 32,
         )
     ]

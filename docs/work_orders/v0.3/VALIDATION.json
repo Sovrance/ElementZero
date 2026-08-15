@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "checks": {
+    "markdown_ascii_only": true,
+    "json_parse": true,
+    "work_orders_present": true,
+    "all_10_work_orders_present": true
+  },
+  "issues": []
+}

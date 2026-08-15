@@ -7,7 +7,7 @@ edition being the only admissible set.
 
 from __future__ import annotations
 
-NORMALIZER_VERSION = "ez-norm-v1"
+NORMALIZER_VERSION = "ez-norm-v2"
 
 # Atomic mass unit energy equivalents.
 U_TO_MEV = 931.49410242

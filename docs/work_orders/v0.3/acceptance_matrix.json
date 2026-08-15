@@ -1,0 +1,59 @@
+{
+  "WO-01": [
+    "edition-specific AME parsers",
+    "official golden fixtures",
+    "honest status semantics",
+    "old estimated rows may become later targets"
+  ],
+  "WO-02": [
+    "complete persisted Atlas lineage",
+    "model-fit aggregate dependency",
+    "truth/finalization validation dependency",
+    "invalidation traversal"
+  ],
+  "WO-03": [
+    "predictive std persisted",
+    "NLPD",
+    "calibration errors",
+    "distance metrics",
+    "three-model comparison"
+  ],
+  "WO-04": [
+    "Atlas PIR clean install",
+    "immutable SHA pin",
+    "overlay retired",
+    "Atlas and ElementZero tests green"
+  ],
+  "WO-05": [
+    "preregistration hashed and committed",
+    "truth hash forbidden",
+    "model/metric policies frozen"
+  ],
+  "WO-06": [
+    "all predictions sealed before truth score",
+    "three models same freeze",
+    "sealed commit before scoring"
+  ],
+  "WO-07": [
+    "A/B/C same protocol version",
+    "no tuning between epochs",
+    "deterministic replay"
+  ],
+  "WO-08": [
+    "complete reproducible report",
+    "all models/epochs/metrics",
+    "no selective reporting"
+  ],
+  "WO-09": [
+    "deterministic geographic masks",
+    "no hidden-region leakage",
+    "depth metrics",
+    "all regions reported"
+  ],
+  "WO-10": [
+    "magic-feature firewall",
+    "derived S2n/S2p and shell metrics",
+    "synthetic challenge",
+    "thresholds preregistered before real score"
+  ]
+}

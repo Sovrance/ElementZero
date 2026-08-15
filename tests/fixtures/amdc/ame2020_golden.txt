@@ -1,0 +1,9 @@
+# Minimal official AMDC excerpt for ElementZero golden tests.
+# Source edition: AME2020
+# Upstream file: mass_1.mas20.txt (IAEA/AMDC public ASCII).
+# Not a complete mass table; software smoke only.
+# References: https://www-nds.iaea.org/amdc/
+  -1    0    1    1 H          7288.971064    0.000013      0.0        0.0     B-      *                    1 007825.031898    0.000014
+   0    2    2    4 He         2424.91587     0.00015    7073.9156     0.0002  B- -22898.2740   212.1320    4 002603.25413     0.00016
+  -3    1    4    5 Be    x   37139#       2003#           18#       401#      B-      *                    5 039870#       2150#
+   0    8    8   16 O         -4737.00217     0.00030    7976.2072     0.0002  B- -15412.1840     5.3642   15 994914.61926     0.00032
