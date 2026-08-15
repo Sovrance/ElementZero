@@ -11,6 +11,7 @@ from elementzero.identity_meta import elementzero_commit
 from elementzero.visuals import DEFAULT_LAYOUT, GENERATOR_VERSION
 from elementzero.visuals.aggregate import aggregate_events, write_state
 from elementzero.visuals.ingest import extract_events, read_events_jsonl, write_events_jsonl
+from elementzero.visuals.readme import should_update_readme, sync_readme
 from elementzero.visuals.render_html import write_html
 from elementzero.visuals.render_svg import write_svg
 
@@ -44,6 +45,7 @@ def build_visual_table(
     input_root: str | Path,
     output_root: str | Path,
     layout_profile: str = DEFAULT_LAYOUT,
+    update_readme: bool | None = None,
 ) -> dict[str, Any]:
     input_root = Path(input_root)
     output_root = Path(output_root)
@@ -67,6 +69,14 @@ def build_visual_table(
         svg_path=svg_path,
         source_hashes=input_hashes,
     )
+    readme_path = None
+    if update_readme is True or (update_readme is None and should_update_readme(input_root)):
+        readme_path = sync_readme(
+            state=state,
+            svg_path=svg_path,
+            bundle=bundle,
+            n_events=len(events),
+        )
     return {
         "events": events_path,
         "state": state_path,
@@ -76,6 +86,7 @@ def build_visual_table(
         "n_events": len(events),
         "test_health": health,
         "bundle_payload": bundle,
+        "readme": readme_path,
     }
 
 
