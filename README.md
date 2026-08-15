@@ -17,6 +17,7 @@ This is the agent-ready implementation handoff for the validation-first Zero-Mas
 
 Coding agents should read these files in order:
 
+- `docs/research/ElementZero_Initial_Research_Baseline_v0.1.md` (canonical research basis; Atlas-upstream decisions)
 - `agents/MASTER_CODING_AGENT_PROMPT.md`
 - `docs/00_EXECUTIVE_HANDOFF.md`
 - `docs/03_GLOBAL_VARIABLES_EXTRACTION_MAP.md`
