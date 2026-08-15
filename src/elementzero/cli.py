@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 from elementzero import BENCHMARK_EZ_B001, BENCHMARK_EZ_B001_TITLE, __version__
 from elementzero.benchmark.b001_finalize import finalize
@@ -13,6 +15,11 @@ from elementzero.benchmark.b001_prepare import prepare_targets
 from elementzero.benchmark.b001_score import score_run
 from elementzero.benchmark.model_suite import run_suite, score_suite
 from elementzero.evidence.hashing import canonical_json
+from elementzero.experiments.epochs import epoch_for
+from elementzero.experiments.preregister import (
+    validate_preregistration,
+    write_preregistration,
+)
 from elementzero.models.gp_residual import MODEL_ID_SEMF_GP
 
 
@@ -20,6 +27,20 @@ def _require_benchmark(value: str) -> str:
     if value in {BENCHMARK_EZ_B001, "EZ-B001"}:
         return BENCHMARK_EZ_B001
     raise SystemExit(f"unsupported benchmark {value!r}; new code uses {BENCHMARK_EZ_B001}")
+
+
+def _forbidden_source_hashes(args: argparse.Namespace) -> list[str]:
+    """Freeze-forbidden hashes from a preregistered protocol and/or the CLI."""
+    hashes = list(getattr(args, "forbidden_source_hash", []) or [])
+    protocol_path = getattr(args, "protocol", None)
+    if protocol_path:
+        protocol = json.loads(Path(protocol_path).read_text(encoding="utf-8"))
+        hashes.extend(protocol.get("forbidden_source_hashes", []))
+    ordered = sorted(set(hashes))
+    for value in ordered:
+        if len(value) != 64 or any(c not in "0123456789abcdef" for c in value.lower()):
+            raise SystemExit(f"forbidden source hash {value!r} is not a sha256 hex digest")
+    return ordered
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,6 +65,33 @@ def build_parser() -> argparse.ArgumentParser:
     freeze.add_argument("--edition", default="AME2003")
     freeze.add_argument("--targets", required=True)
     freeze.add_argument("--output", required=True)
+    freeze.add_argument(
+        "--protocol",
+        default=None,
+        help="preregistered protocol.json; its forbidden_source_hashes enter the freeze",
+    )
+    freeze.add_argument(
+        "--forbidden-source-hash",
+        action="append",
+        default=[],
+        metavar="SHA256",
+        help="later-truth source hash the freeze must refuse (repeatable)",
+    )
+
+    prereg = bsub.add_parser(
+        "preregister",
+        help="write an immutable preregistration for a declared epoch",
+    )
+    prereg.add_argument("--experiment", required=True, help="experiment id, e.g. EZ-B001-A")
+    prereg.add_argument("--out", default=None, help="defaults to experiments/<experiment>")
+    prereg.add_argument("--training-source", default=None, help="defaults to the declared relpath")
+    prereg.add_argument("--truth-source", default=None, help="defaults to the declared relpath")
+
+    validate = bsub.add_parser(
+        "validate-preregistration",
+        help="recompute the preregistration hash and check every WO-05 gate",
+    )
+    validate.add_argument("--experiment", required=True, help="experiment directory")
 
     predict = bsub.add_parser("predict", help="blind prediction (no later-truth argument)")
     predict.add_argument("--benchmark", default=BENCHMARK_EZ_B001)
@@ -105,14 +153,48 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if cmd == "freeze":
         _require_benchmark(args.benchmark)
+        forbidden = _forbidden_source_hashes(args)
         freeze = freeze_training(
             training_source=args.training_source,
             training_edition_id=args.edition,
             targets_path=args.targets,
             output=args.output,
             benchmark_id=BENCHMARK_EZ_B001,
+            forbidden_source_hashes=forbidden,
         )
-        print(canonical_json({"freeze_id": freeze.freeze_id, "n_train": len(freeze.training_nuclide_ids)}))
+        print(
+            canonical_json(
+                {
+                    "freeze_id": freeze.freeze_id,
+                    "n_train": len(freeze.training_nuclide_ids),
+                    "forbidden_source_hashes": list(freeze.forbidden_source_hashes),
+                }
+            )
+        )
+        return 0
+    if cmd == "preregister":
+        epoch = epoch_for(args.experiment)
+        out = Path(args.out) if args.out else Path("experiments") / epoch.experiment_id
+        result = write_preregistration(
+            epoch=epoch,
+            experiment_dir=out,
+            training_source=args.training_source or epoch.training_relpath,
+            truth_source=args.truth_source or epoch.truth_relpath,
+        )
+        report = validate_preregistration(out)
+        print(
+            canonical_json(
+                {
+                    "experiment_id": result["experiment_id"],
+                    "experiment_dir": result["experiment_dir"],
+                    "preregistration_hash": result["preregistration_hash"],
+                    "status": report["status"],
+                }
+            )
+        )
+        return 0
+    if cmd == "validate-preregistration":
+        print(canonical_json(validate_preregistration(args.experiment)))
         return 0
     if cmd == "predict":
         _require_benchmark(args.benchmark)
