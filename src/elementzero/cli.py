@@ -15,6 +15,7 @@ from elementzero.benchmark.b001_prepare import prepare_targets
 from elementzero.benchmark.b001_score import score_run
 from elementzero.benchmark.model_suite import run_suite, score_suite
 from elementzero.evidence.hashing import canonical_json
+from elementzero.experiments.aggregate import write_aggregate
 from elementzero.experiments.epochs import epoch_for
 from elementzero.experiments.preregister import (
     validate_preregistration,
@@ -128,6 +129,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     replay.add_argument("--experiment", required=True, help="experiment id, e.g. EZ-B001-B")
     replay.add_argument("--dir", default=None, help="defaults to experiments/<experiment>")
+
+    aggregate = bsub.add_parser(
+        "aggregate",
+        help="longitudinal aggregate over every scored epoch of one protocol version",
+    )
+    aggregate.add_argument("--out", default=None, help="defaults to results/EZ-B001")
 
     predict = bsub.add_parser("predict", help="blind prediction (no later-truth argument)")
     predict.add_argument("--benchmark", default=BENCHMARK_EZ_B001)
@@ -271,6 +278,20 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "replay":
         epoch = epoch_for(args.experiment)
         print(canonical_json(replay_experiment(epoch=epoch, experiment_dir=args.dir)))
+        return 0
+    if cmd == "aggregate":
+        result = write_aggregate(out_dir=args.out)
+        payload = result["aggregate"]
+        print(
+            canonical_json(
+                {
+                    "out_dir": result["out_dir"],
+                    "experiment_ids": payload["experiment_ids"],
+                    "model_ids": payload["model_ids"],
+                    "n_rows": len(payload["rows"]),
+                }
+            )
+        )
         return 0
     if cmd == "predict":
         _require_benchmark(args.benchmark)
