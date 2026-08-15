@@ -1,0 +1,37 @@
+ZERO-MASS ELEMENT v0.1 — CANONICAL DOCUMENT SET
+Date: 15 August 2026
+
+Mission
+-------
+Build a validation-first computational nuclear/element prediction platform that must demonstrate credible prediction on known nuclei using leakage-resistant blind and historical benchmarks before extrapolating to unknown superheavy and hyperheavy regions.
+
+Included deliverables
+---------------------
+1. Zero-Mass_Element_Research_Dossier_v0.1.docx
+   Complete research dossier with scientific rationale, frontier methods, validation strategy, and 33-source bibliography.
+
+2. Zero-Mass_Element_Research_Dossier_v0.1.md
+   Editable/source Markdown version of the research dossier.
+
+3. Zero-Mass_Element_Engineering_Spec_v0.1.docx
+   Implementation-oriented architecture and benchmark specification, including schemas, model interfaces, scientific gates, roadmap, and references.
+
+4. Zero-Mass_Element_Engineering_Spec_v0.1.md
+   Editable/source Markdown version of the engineering specification.
+
+5. SHA256SUMS.txt
+   File integrity hashes for the four canonical documents.
+
+Validation posture
+------------------
+- Historical Time-Machine benchmarks
+- Isotope-chain and geographic holdouts
+- Hidden Shell / Hidden Islands discovery benchmark
+- Production and discovery pipelines kept distinct
+- Calibrated uncertainty and out-of-distribution reporting required
+- Immutable prediction ledger
+- Unknown-territory mode gated behind validation milestones
+
+Scope note
+----------
+This v0.1 package is a computational scientific architecture. It does not contain operational procedures for radioactive target preparation, accelerator operation, or experimental synthesis.

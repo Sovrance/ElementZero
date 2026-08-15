@@ -1,0 +1,58 @@
+{
+  "$id": "pec:prediction_certificate:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "certificate_version": {
+      "type": "string"
+    },
+    "content_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "knowledge_freeze_id": {
+      "type": "string"
+    },
+    "model_id": {
+      "type": "string"
+    },
+    "observable": {
+      "type": "string"
+    },
+    "prediction_id": {
+      "type": "string"
+    },
+    "prediction_mean": {
+      "type": "number"
+    },
+    "prediction_std": {
+      "minimum": 0,
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "subject_id": {
+      "type": "string"
+    },
+    "training_ids_sha256": {
+      "type": "string"
+    },
+    "uncertainty_scope": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "certificate_version",
+    "prediction_id",
+    "subject_id",
+    "observable",
+    "knowledge_freeze_id",
+    "training_ids_sha256",
+    "model_id",
+    "prediction_mean",
+    "uncertainty_scope",
+    "content_sha256"
+  ],
+  "type": "object"
+}

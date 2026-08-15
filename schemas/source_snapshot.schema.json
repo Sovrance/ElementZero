@@ -1,0 +1,39 @@
+{
+  "$id": "pec:source_snapshot:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "acquired_at": {
+      "type": "string"
+    },
+    "artifact_id": {
+      "type": "string"
+    },
+    "edition": {
+      "type": "string"
+    },
+    "normalizer_version": {
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "source_uri": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "artifact_id",
+    "source_name",
+    "edition",
+    "sha256",
+    "acquired_at",
+    "source_uri",
+    "normalizer_version"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: physics-evidence-core
+Version: 0.1.0
+Summary: Domain-neutral evidence, provenance, certification, and validation kernel
+Requires-Python: >=3.11
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"

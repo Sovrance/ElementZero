@@ -1,0 +1,6 @@
+numpy>=1.26
+scikit-learn>=1.4
+physics-evidence-core>=0.1.0
+
+[dev]
+pytest>=8.0
