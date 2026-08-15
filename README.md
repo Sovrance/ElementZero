@@ -36,6 +36,7 @@ elementzero benchmark score --run run/prediction/ --truth-source later.mas --out
 ## Visual element table
 
 The progress table is generated from tests and benchmark artifacts, not hand-edited tiles.
+`elementzero visual build` replaces the snapshot below whenever the derived values change.
 
 ```bash
 elementzero visual build --input-root . --layout extended_200_project_v1 --output-root reports/visuals/
@@ -43,7 +44,39 @@ elementzero visual build --input-root . --layout extended_200_project_v1 --outpu
 
 Outputs: `element_progress_events.jsonl`, `element_table_state.json`, `element_table.html`, `element_table.svg`, `visual_render_bundle.json`.
 
-Elements 119-200 are project placeholders, not official IUPAC placement. Prediction-only runs are never shown as validated.
+<!-- ELEMENTZERO_VISUAL_TABLE_BEGIN -->
+![ElementZero visual element table](docs/visuals/element_table.svg)
+
+| Check | Status |
+| --- | --- |
+| Unit | UNKNOWN |
+| Integration | UNKNOWN |
+| Leakage | UNKNOWN |
+| Overall | UNKNOWN |
+| Benchmark | UNKNOWN |
+
+| Primary stage | Elements |
+| --- | --- |
+| Not touched | 200 |
+| Data ingested | 0 |
+| Benchmark targeted | 0 |
+| Historically validated | 0 |
+| Geographic holdout validated | 0 |
+| Shell challenge participant | 0 |
+| Shell rediscovery validated | 0 |
+| Frontier predicted | 0 |
+| Candidate island focus | 0 |
+
+| Field | Value |
+| --- | --- |
+| Layout | `extended_200_project_v1` |
+| Events | 0 |
+| Generator | `visual-table-v0.1` |
+| State hash | `4b00cf68604c0e66` |
+| SVG hash | `f655cf24abc8e697` |
+
+Elements 119-200 are project placeholders, not official IUPAC placement. Prediction-only runs are never shown as validated. Visual states summarize project artifacts and do not constitute experimental discovery claims.
+<!-- ELEMENTZERO_VISUAL_TABLE_END -->
 
 ## Architecture rule
 
