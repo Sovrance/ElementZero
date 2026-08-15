@@ -1,0 +1,7 @@
+{
+  "benchmark_id": "EZ-B001-demo",
+  "targets": [
+    {"nuclide_id": "Z8-N8", "Z": 8, "N": 8, "A": 16},
+    {"nuclide_id": "Z10-N12", "Z": 10, "N": 12, "A": 22}
+  ]
+}

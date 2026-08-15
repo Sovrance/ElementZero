@@ -35,7 +35,7 @@ where = ["src"]
 include = ["elementzero", "elementzero.*"]
 
 [tool.setuptools.package-data]
-elementzero = ["py.typed"]
+elementzero = ["py.typed", "visuals/layouts/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -17,3 +17,6 @@ run/
 .coverage
 htmlcov/
 .mypy_cache/
+.artifacts/
+reports/visuals/*
+!reports/visuals/.gitkeep

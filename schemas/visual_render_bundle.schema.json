@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero Visual Render Bundle",
+  "type": "object",
+  "required": [
+    "state_hash",
+    "events_hash",
+    "generator_version",
+    "elementzero_commit",
+    "atlas_commit",
+    "source_hashes"
+  ],
+  "properties": {
+    "state_hash": {
+      "type": "string"
+    },
+    "events_hash": {
+      "type": "string"
+    },
+    "html_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "svg_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "generator_version": {
+      "type": "string"
+    },
+    "elementzero_commit": {
+      "type": "string"
+    },
+    "atlas_commit": {
+      "type": "string"
+    },
+    "source_hashes": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

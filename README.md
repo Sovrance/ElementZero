@@ -33,6 +33,18 @@ elementzero benchmark finalize --run run/prediction/
 elementzero benchmark score --run run/prediction/ --truth-source later.mas --out run/scoring/
 ```
 
+## Visual element table
+
+The progress table is generated from tests and benchmark artifacts, not hand-edited tiles.
+
+```bash
+elementzero visual build --input-root . --layout extended_200_project_v1 --output-root reports/visuals/
+```
+
+Outputs: `element_progress_events.jsonl`, `element_table_state.json`, `element_table.html`, `element_table.svg`, `visual_render_bundle.json`.
+
+Elements 119-200 are project placeholders, not official IUPAC placement. Prediction-only runs are never shown as validated.
+
 ## Architecture rule
 
 ```text

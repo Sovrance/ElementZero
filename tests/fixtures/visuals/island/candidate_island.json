@@ -1,0 +1,10 @@
+{
+  "event_type": "CANDIDATE_ISLAND_MARKED",
+  "explicit_island_focus": true,
+  "elements": [120],
+  "region_id": "island-fixture",
+  "rationale": "explicit governance fixture only",
+  "supporting_models": ["semf_gp"],
+  "supporting_run_ids": ["fixture"],
+  "review_status": "fixture"
+}
