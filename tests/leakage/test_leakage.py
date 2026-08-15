@@ -138,6 +138,55 @@ def test_prediction_modified_after_finalization_is_rejected(tmp_path, synthetic_
         score_run(run_dir=run_dir, truth_source=later, truth_edition_id="AME2020", out_dir=tmp_path / "s")
 
 
+def test_swapped_targets_after_freeze_are_rejected(tmp_path, synthetic_sources):
+    old, later = synthetic_sources
+    prepare_targets(
+        later_source=later,
+        edition_id="AME2020",
+        output=tmp_path / "targets.json",
+        known_source=old,
+        known_edition_id="AME2003",
+    )
+    freeze = freeze_training(
+        training_source=old,
+        training_edition_id="AME2003",
+        targets_path=tmp_path / "targets.json",
+    )
+    cherry = [{"nuclide_id": "Z18-N19", "Z": 18, "N": 19, "A": 37}]
+    with pytest.raises(LeakageError, match="do not match the freeze"):
+        predict_run(
+            freeze=freeze,
+            targets=cherry,
+            training_source=old,
+            training_edition_id="AME2003",
+            run_dir=tmp_path / "run",
+        )
+
+
+def test_mismatched_training_edition_is_rejected(tmp_path, synthetic_sources):
+    old, later = synthetic_sources
+    prepare_targets(
+        later_source=later,
+        edition_id="AME2020",
+        output=tmp_path / "targets.json",
+        known_source=old,
+        known_edition_id="AME2003",
+    )
+    freeze = freeze_training(
+        training_source=old,
+        training_edition_id="AME2003",
+        targets_path=tmp_path / "targets.json",
+    )
+    with pytest.raises(LeakageError, match="training edition"):
+        predict_run(
+            freeze=freeze,
+            targets=load_targets(tmp_path / "targets.json"),
+            training_source=old,
+            training_edition_id="AME2020",
+            run_dir=tmp_path / "run",
+        )
+
+
 def test_mutable_and_unresolved_atlas_refs_are_rejected():
     with pytest.raises(AtlasContractError):
         validate_atlas_ref("main")

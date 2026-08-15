@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from tests.helpers import synthetic_editions
-
 
 @pytest.fixture
 def synthetic_sources(tmp_path: Path) -> tuple[Path, Path]:
+    from tests.helpers import synthetic_editions
+
     return synthetic_editions(tmp_path)

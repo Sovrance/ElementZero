@@ -4,7 +4,7 @@ from elementzero.data.identity import NuclideIdentity
 from elementzero.data.observations import MassObservation
 from elementzero.errors import SchemaError
 from elementzero.evidence.certificates import make_certificate, validate_certificate
-from elementzero.evidence.freezes import build_freeze, identity_digest
+from elementzero.evidence.freezes import build_freeze, identity_digest, target_digest
 
 
 def test_freeze_serialization_contains_commits():
@@ -33,6 +33,8 @@ def test_freeze_serialization_contains_commits():
     assert payload["atlas_pir_ref"] == "31d76d094f1206e64a6920da4775d0a684618357"
     assert payload["elementzero_commit"] == "deadbeef"
     assert payload["training_identity_digest"] == identity_digest(["Z8-N8"])
+    assert payload["target_nuclide_ids"] == ["Z18-N19"]
+    assert payload["target_identity_digest"] == target_digest(["Z18-N19"])
     again = type(freeze).from_dict(payload)
     assert again.freeze_id == freeze.freeze_id
 

@@ -12,7 +12,9 @@ from elementzero.evidence.atlas_adapter import NUCLEAR_MASS_INTERFACE, AtlasEvid
 from elementzero.evidence.certificates import make_certificate
 from elementzero.evidence.freezes import (
     KnowledgeFreeze,
+    assert_edition_allowed,
     assert_holdout_disjoint,
+    assert_targets_match_freeze,
     assert_training_digest,
     validate_target_record,
 )
@@ -67,6 +69,7 @@ def predict_run(
         raise LeakageError("training source hash is not allowed by the freeze")
     if source_hash in freeze.forbidden_source_hashes:
         raise LeakageError("training source hash is forbidden by the freeze")
+    assert_edition_allowed(freeze, training_edition_id)
 
     observations = [
         obs
@@ -74,7 +77,9 @@ def predict_run(
         if obs.nuclide_id in set(freeze.training_nuclide_ids) and obs.ground_truth_eligible
     ]
     assert_training_digest(freeze, [o.nuclide_id for o in observations])
-    assert_holdout_disjoint(freeze, [t["nuclide_id"] for t in targets])
+    target_ids = [t["nuclide_id"] for t in targets]
+    assert_holdout_disjoint(freeze, target_ids)
+    assert_targets_match_freeze(freeze, target_ids)
 
     model = build_model(model_id)
     model.fit(observations)
@@ -118,6 +123,20 @@ def predict_run(
     m_hash = manifest_hash(manifest)
     created = adapter.created_at
     identity = provenance_identity()
+    fit_fact = adapter.model_fit_fact(
+        model_id=model_id,
+        freeze_id=freeze.freeze_id,
+        fitted_nuclide_ids=[o.nuclide_id for o in observations],
+        depends_on_facts=[f.fact_id for f in obs_facts],
+    )
+    adapter.append_fact(fit_fact)
+    adapter.append_provenance(
+        entity=fit_fact.fact_id,
+        activity_type="ANALYZE",
+        agent_id="elementzero.models.predict",
+        used=tuple(f.fact_id for f in obs_facts),
+        generated=(fit_fact.fact_id,),
+    )
     for target in targets:
         pred = model.predict(NuclideIdentity.from_zn(int(target["Z"]), int(target["N"])))
         fact = adapter.prediction_fact(
@@ -129,7 +148,7 @@ def predict_run(
             intervals=pred.intervals,
             model_id=model_id,
             freeze_id=freeze.freeze_id,
-            depends_on_facts=[f.fact_id for f in obs_facts[:1]],
+            depends_on_facts=(fit_fact.fact_id,),
         )
         adapter.append_fact(fact)
         pred_facts.append(fact)
@@ -137,7 +156,7 @@ def predict_run(
             entity=fact.fact_id,
             activity_type="ANALYZE",
             agent_id="elementzero.models.predict",
-            used=tuple(f.fact_id for f in obs_facts[:1]),
+            used=(fit_fact.fact_id,),
             generated=(fact.fact_id,),
         )
         cert = make_certificate(

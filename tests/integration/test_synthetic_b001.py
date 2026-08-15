@@ -1,3 +1,4 @@
+import json
 
 from elementzero.benchmark.b001_finalize import finalize
 from elementzero.benchmark.b001_freeze import freeze_training
@@ -54,6 +55,8 @@ def test_cli_four_process_flow(tmp_path, synthetic_sources):
         "--out", str(score),
     ]) == 0
     assert (score / "metrics.json").is_file()
+    predictions = json.loads((run / "predictions.json").read_text())
+    assert isinstance(predictions[0]["mass_excess_keV"], (int, float))
 
 
 def test_predict_does_not_read_later_source(tmp_path, synthetic_sources, monkeypatch):
@@ -91,3 +94,36 @@ def test_predict_does_not_read_later_source(tmp_path, synthetic_sources, monkeyp
         out_dir=tmp_path / "score",
     )
     assert report["metrics"]["n"] >= 1
+
+
+def test_prediction_facts_depend_on_full_training_fit(tmp_path, synthetic_sources):
+    old, later = synthetic_sources
+    targets = tmp_path / "targets.json"
+    prepare_targets(
+        later_source=later,
+        edition_id="AME2020",
+        output=targets,
+        known_source=old,
+        known_edition_id="AME2003",
+    )
+    freeze = freeze_training(
+        training_source=old,
+        training_edition_id="AME2003",
+        targets_path=targets,
+    )
+    result = predict_run(
+        freeze=freeze,
+        targets=load_targets(targets),
+        training_source=old,
+        training_edition_id="AME2003",
+        run_dir=tmp_path / "run",
+    )
+    facts = result["adapter"].store.facts()
+    fit = [f for f in facts if f.content.get("kind") == "nuclear_mass_model_fit"]
+    preds = [f for f in facts if f.content.get("kind") == "nuclear_mass_prediction"]
+    obs = [f for f in facts if f.content.get("kind") == "nuclear_mass_observation"]
+    assert len(fit) == 1
+    assert len(fit[0].depends_on_facts) == len(obs)
+    assert obs
+    for pred in preds:
+        assert pred.depends_on_facts == (fit[0].fact_id,)
