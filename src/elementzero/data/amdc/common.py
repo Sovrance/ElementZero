@@ -1,8 +1,8 @@
 """Shared AME mass-table parsing.
 
-Edition adapters supply explicit column maps. Values marked with ``#`` in the
-source are estimated (non-experimental) evaluated quantities and are not
-ground-truth eligible for EZ-B001 v1.
+Edition adapters supply explicit column maps. In official AMDC/Audi tables,
+``#`` replaces the decimal point and marks the value as estimated
+(non-experimental). Those rows are not ground-truth eligible for EZ-B001 v1.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from elementzero.data.observations import (
 )
 from elementzero.evidence.hashing import sha256_hex
 
-PARSER_VERSION = "ame-parser-v2"
+PARSER_VERSION = "ame-parser-v3"
 DEFAULT_MALFORMED_FRACTION_LIMIT = 0.5
 
 
@@ -128,11 +128,16 @@ def _slice(line: str, span: tuple[int, int]) -> str:
 
 
 def _parse_ame_number(raw: str) -> tuple[float, bool]:
+    """Parse one AME numeric field.
+
+    Official tables replace the decimal point with ``#`` for estimated
+    values (``123#45`` is 123.45 and estimated; ``37139#`` is 37139.0).
+    """
     text = raw.strip()
     if not text or text in {"*", ""}:
         raise ValueError(f"empty AME numeric field: {raw!r}")
     estimated = "#" in text
-    cleaned = text.replace("#", "").replace("*", "").strip()
+    cleaned = text.replace("#", ".").replace("*", "").strip()
     return float(cleaned), estimated
 
 
@@ -287,12 +292,12 @@ def format_ame_line(
     unc_fmt = (
         f"{{:{cols.mass_excess_unc[1] - cols.mass_excess_unc[0]}.{cols.uncertainty_precision}f}}"
     )
-    put(cols.mass_excess, me_fmt.format(mass_excess_keV))
-    put(cols.mass_excess_unc, unc_fmt.format(uncertainty_keV))
-    text = "".join(line)
+    me_text = me_fmt.format(mass_excess_keV)
+    unc_text = unc_fmt.format(uncertainty_keV)
     if estimated:
-        end = cols.mass_excess[1]
-        text = text[: end - 1] + "#" + text[end:]
-        uend = cols.mass_excess_unc[1]
-        text = text[: uend - 1] + "#" + text[uend:]
-    return text.rstrip()
+        # Audi/AMDC style: "#" stands in for the decimal point.
+        me_text = me_text.replace(".", "#", 1)
+        unc_text = unc_text.replace(".", "#", 1)
+    put(cols.mass_excess, me_text)
+    put(cols.mass_excess_unc, unc_text)
+    return "".join(line).rstrip()

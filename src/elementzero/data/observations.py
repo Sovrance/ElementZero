@@ -9,9 +9,10 @@ from elementzero.data.identity import NuclideIdentity, validate_a
 from elementzero.physics.constants import NORMALIZER_VERSION
 
 # Conservative AME evaluation-status vocabulary (WO-01).
-# AME "#" marks estimated (non-experimental) evaluated values; that alone does
-# not prove a single direct measurement. Reserve direct_measurement for later
-# sources with explicit measurement provenance.
+# AME "#" replaces the decimal point and marks estimated (non-experimental)
+# evaluated values; that alone does not prove a single direct measurement.
+# Reserve direct_measurement for later sources with explicit measurement
+# provenance.
 RECORD_STATUS_EVALUATED_NON_ESTIMATED = "evaluated_non_estimated"
 RECORD_STATUS_EVALUATED_ESTIMATED = "evaluated_estimated"
 RECORD_STATUS_EXTRAPOLATED = "extrapolated"

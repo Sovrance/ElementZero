@@ -49,7 +49,7 @@ raw source line or source span where practical
 
 ## SEMF implementation
 
-Implement and test the ASCII equation in `docs/01_ZME_V0.2_ENGINEERING_SPEC.md`. Refit coefficients per historical snapshot.
+Implement and test the ASCII equation in `docs/legacy/01_ZME_V0.2_ENGINEERING_SPEC.md`. Refit coefficients per historical snapshot.
 
 Unit tests must cover:
 

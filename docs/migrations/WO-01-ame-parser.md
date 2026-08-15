@@ -24,7 +24,7 @@ Old estimated rows no longer remove a nuclide from the later target set.
 
 ## Parser / normalizer versions
 
-- `PARSER_VERSION = ame-parser-v2`
+- `PARSER_VERSION = ame-parser-v3` (`#` is the Audi decimal-point marker, not a suffix to strip)
 - `NORMALIZER_VERSION = ez-norm-v2`
 
 ## Schemas
