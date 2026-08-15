@@ -1,0 +1,1 @@
+{"experiment_id":"EZ-B001-B","later_edition":"AME2016","n_targets":63,"protocol_version":"1.0.0","target_identity_digest":"d8c1aa9314c0256ecdbece276f7a154ea4f73c5dd9245288768e3afd12a3a9ec","target_manifest_fields":["nuclide_id","Z","N","A"],"target_manifest_sha256":"afbbf0fffb7b63822bfde6ce2bf9680b6642c993fac7d4d2ac3af4f71d469797","training_edition":"AME2012"}
