@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 from elementzero import BENCHMARK_EZ_B001, BENCHMARK_EZ_B001_TITLE, __version__
 from elementzero.benchmark.b001_finalize import finalize
@@ -13,6 +15,11 @@ from elementzero.benchmark.b001_prepare import prepare_targets
 from elementzero.benchmark.b001_score import score_run
 from elementzero.evidence.hashing import canonical_json
 from elementzero.models.gp_residual import MODEL_ID_SEMF_GP
+from elementzero.visuals import DEFAULT_LAYOUT
+from elementzero.visuals.build import aggregate_from_events_file, build_visual_table
+from elementzero.visuals.ingest import extract_events, write_events_jsonl
+from elementzero.visuals.render_html import write_html
+from elementzero.visuals.render_svg import write_svg
 
 
 def _require_benchmark(value: str) -> str:
@@ -61,14 +68,86 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_argument("--truth-source", required=True)
     score.add_argument("--edition", default="AME2020")
     score.add_argument("--out", required=True)
+
+    visual = sub.add_parser("visual", help="build the artifact-derived element table")
+    vsub = visual.add_subparsers(dest="visual_command", required=True)
+
+    extract = vsub.add_parser("extract-events", help="normalize tests and benchmark artifacts to events")
+    extract.add_argument("--input-root", required=True)
+    extract.add_argument("--output", default="reports/visuals/element_progress_events.jsonl")
+
+    agg = vsub.add_parser("aggregate", help="aggregate events into element table state")
+    agg.add_argument("--events", required=True)
+    agg.add_argument("--layout", default=DEFAULT_LAYOUT)
+    agg.add_argument("--output", default="reports/visuals/element_table_state.json")
+
+    html = vsub.add_parser("render-html", help="render a self-contained HTML table")
+    html.add_argument("--state", required=True)
+    html.add_argument("--output", default="reports/visuals/element_table.html")
+
+    svg = vsub.add_parser("render-svg", help="render a deterministic SVG table")
+    svg.add_argument("--state", required=True)
+    svg.add_argument("--output", default="reports/visuals/element_table.svg")
+
+    build = vsub.add_parser("build", help="extract, aggregate, and render the visual table")
+    build.add_argument("--input-root", default=".")
+    build.add_argument("--layout", default=DEFAULT_LAYOUT)
+    build.add_argument("--output-root", default="reports/visuals/")
     return parser
+
+
+def _load_state(path: str) -> dict:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _run_visual(args: argparse.Namespace) -> int:
+    cmd = args.visual_command
+    if cmd == "extract-events":
+        events, _health, hashes = extract_events(args.input_root)
+        dest = write_events_jsonl(events, args.output)
+        print(canonical_json({"events": str(dest), "n_events": len(events), "n_sources": len(hashes)}))
+        return 0
+    if cmd == "aggregate":
+        dest = aggregate_from_events_file(args.events, output=args.output, layout_profile=args.layout)
+        print(canonical_json({"state": str(dest)}))
+        return 0
+    if cmd == "render-html":
+        dest = write_html(_load_state(args.state), args.output)
+        print(canonical_json({"html": str(dest)}))
+        return 0
+    if cmd == "render-svg":
+        dest = write_svg(_load_state(args.state), args.output)
+        print(canonical_json({"svg": str(dest)}))
+        return 0
+    if cmd == "build":
+        result = build_visual_table(
+            input_root=args.input_root,
+            output_root=args.output_root,
+            layout_profile=args.layout,
+        )
+        print(
+            canonical_json(
+                {
+                    "events": str(result["events"]),
+                    "state": str(result["state"]),
+                    "html": str(result["html"]),
+                    "svg": str(result["svg"]),
+                    "n_events": result["n_events"],
+                    "test_health": result["test_health"],
+                }
+            )
+        )
+        return 0
+    raise SystemExit(f"unknown visual command {cmd}")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command == "visual":
+        return _run_visual(args)
     if args.command != "benchmark":
-        parser.error("only the benchmark command is implemented in v0.2")
+        parser.error("only the benchmark and visual commands are implemented")
     cmd = args.benchmark_command
     if cmd == "prepare-targets":
         _require_benchmark(args.benchmark)

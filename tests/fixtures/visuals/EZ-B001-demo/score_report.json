@@ -1,0 +1,15 @@
+{
+  "benchmark_id": "EZ-B001-demo",
+  "model_id": "semf_gp",
+  "rows": [
+    {
+      "nuclide_id": "Z8-N8",
+      "Z": 8,
+      "prediction_keV": -4730.0,
+      "truth_keV": -4737.0,
+      "interval_hit_90": true,
+      "interval_hit_95": true,
+      "nearest_training_L1": 2
+    }
+  ]
+}

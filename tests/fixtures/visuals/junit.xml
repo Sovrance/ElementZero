@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+  <testsuite name="pytest" tests="3" failures="0" errors="0">
+    <testcase classname="tests.unit.test_identity" name="test_nuclide_id"/>
+    <testcase classname="tests.integration.test_synthetic_b001" name="test_cli_four_process_flow"/>
+    <testcase classname="tests.leakage.test_leakage" name="test_predict_rejects_truth"/>
+  </testsuite>
+</testsuites>
