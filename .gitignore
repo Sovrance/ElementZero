@@ -17,3 +17,6 @@ run/
 .coverage
 htmlcov/
 .mypy_cache/
+
+# Official AME raw tables (do not commit)
+data/
