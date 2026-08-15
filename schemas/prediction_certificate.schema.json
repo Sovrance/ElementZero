@@ -1,58 +1,50 @@
 {
-  "$id": "pec:prediction_certificate:v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "additionalProperties": true,
-  "properties": {
-    "certificate_version": {
-      "type": "string"
-    },
-    "content_sha256": {
-      "pattern": "^[a-f0-9]{64}$",
-      "type": "string"
-    },
-    "knowledge_freeze_id": {
-      "type": "string"
-    },
-    "model_id": {
-      "type": "string"
-    },
-    "observable": {
-      "type": "string"
-    },
-    "prediction_id": {
-      "type": "string"
-    },
-    "prediction_mean": {
-      "type": "number"
-    },
-    "prediction_std": {
-      "minimum": 0,
-      "type": [
-        "number",
-        "null"
-      ]
-    },
-    "subject_id": {
-      "type": "string"
-    },
-    "training_ids_sha256": {
-      "type": "string"
-    },
-    "uncertainty_scope": {
-      "type": "string"
-    }
-  },
+  "$id": "https://elementzero.sovrance/schemas/prediction_certificate.schema.json",
+  "title": "ElementZero prediction certificate",
+  "type": "object",
   "required": [
-    "certificate_version",
-    "prediction_id",
-    "subject_id",
+    "certificate_id",
+    "benchmark_id",
+    "nuclide_id",
     "observable",
-    "knowledge_freeze_id",
-    "training_ids_sha256",
-    "model_id",
-    "prediction_mean",
+    "prediction",
+    "intervals",
     "uncertainty_scope",
-    "content_sha256"
+    "model_id",
+    "model_manifest_hash",
+    "freeze_id",
+    "training_identity_digest",
+    "feature_policy_id",
+    "atlas_pir_ref",
+    "elementzero_commit",
+    "source_hashes",
+    "created_at",
+    "ledger_state"
   ],
-  "type": "object"
+  "properties": {
+    "certificate_id": { "type": "string" },
+    "benchmark_id": { "type": "string", "const": "EZ-B001" },
+    "legacy_id": { "type": "string", "const": "ZME-B001" },
+    "nuclide_id": { "type": "string" },
+    "observable": { "type": "string", "const": "mi:nuclear_atomic_mass_excess" },
+    "prediction": {
+      "type": "object",
+      "required": ["mass_excess_keV"],
+      "properties": { "mass_excess_keV": { "type": "number" } }
+    },
+    "intervals": { "type": "object" },
+    "uncertainty_scope": { "type": "string" },
+    "model_id": { "type": "string" },
+    "model_manifest_hash": { "type": "string" },
+    "freeze_id": { "type": "string" },
+    "training_identity_digest": { "type": "string" },
+    "feature_policy_id": { "type": "string" },
+    "atlas_pir_ref": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "elementzero_commit": { "type": "string" },
+    "source_hashes": { "type": "array", "items": { "type": "string" } },
+    "created_at": { "type": "string" },
+    "ledger_state": { "type": "string" },
+    "atlas_fact_id": { "type": ["string", "null"] }
+  }
 }

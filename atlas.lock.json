@@ -1,0 +1,11 @@
+{
+  "distribution_name": "sovrance-atlas-pir",
+  "python_import": "pir",
+  "supported_versions": ["0.1.0"],
+  "repository": "https://github.com/Sovrance/Atlas",
+  "git_url": "https://github.com/Sovrance/Atlas.git",
+  "ref": "31d76d094f1206e64a6920da4775d0a684618357",
+  "tag": null,
+  "reviewed_baseline": "31d76d094f1206e64a6920da4775d0a684618357",
+  "note": "Immutable PIR pin. Replace ref only after an Atlas packaging merge; never depend on main."
+}

@@ -2,35 +2,30 @@
 
 ## Cursor Cloud specific instructions
 
-This repository is a **local Python research stack** (no web app, Docker, or databases). Core packages live under `scaffold/`:
+Primary product is the installable **`elementzero`** package (`src/elementzero/`) with commit-pinned Atlas PIR. Legacy ZME/PEC scaffolds under `scaffold/` remain for handoff validation only.
 
-| Package | Path | Role |
+| Layer | Path / entry | Role |
 | --- | --- | --- |
-| physics-evidence-core (PEC) | `scaffold/physics-evidence-core` | Evidence/provenance/certificates |
-| zero-mass-element (ZME) | `scaffold/zero-mass-element` | Nuclear mass prediction + `zme` CLI |
+| ElementZero (preferred) | `src/elementzero/`, CLI `elementzero` | EZ-B001 + Atlas adapter |
+| Atlas PIR pin | `atlas.lock.json`, `tools/ensure_atlas_pir.py` | Immutable evidence kernel |
+| PEC scaffold (legacy) | `scaffold/physics-evidence-core` | Handoff extraction |
+| ZME scaffold (legacy) | `scaffold/zero-mass-element`, CLI `zme` | Synthetic ZME-B001 smoke |
 
 ### Startup / install caveats
 
-- Editable installs put `zme` and `pytest` in `~/.local/bin`. Ensure that directory is on `PATH` before invoking CLI tools.
-- Install **PEC before ZME** (ZME depends on `physics-evidence-core>=0.1.0`).
-- There is **no lockfile**; pip resolves numpy/scikit-learn/scipy at install time. Synthetic B001 metrics can differ slightly across sklearn versions; treat `validation/synthetic_b001_metrics.json` as approximate reference for software smoke only.
-- Bundled fixtures are **synthetic software smoke data**, not scientific evidence. Official AME historical runs (task T10) need external AMDC/NNDC downloads.
+- Preferred install matches CI: `python tools/ensure_atlas_pir.py`, install runtime/dev deps, then `python -m pip install -e . --no-deps`. Do not depend on Atlas `main`; use the SHA in `atlas.lock.json`. Plain `pip install -e '.[dev]'` fails because the pinned Atlas SHA is not yet a publishable package without the ensure overlay.
+- Editable installs put `elementzero` / `zme` / `pytest` in `~/.local/bin`. Ensure that directory is on `PATH`.
+- Root `schemas/nuclear_observation.schema.json` and `schemas/prediction_certificate.schema.json` describe the **ElementZero** contracts. Scaffold/PEC certificate shapes differ and are not loaded from these files.
+- Synthetic fixtures are software smoke only, not scientific evidence. Official AME runs need external AMDC/NNDC downloads.
 
 ### Commands (canonical sources)
 
-- Bundle smoke: `python3 scripts/validate_bundle.py` (expects `BUNDLE_VALIDATION: PASS`) — also covered in root `README.md`.
-- Tests: `python3 -m pytest -q` inside each scaffold package.
-- CLI E2E (synthetic): `zme b001-prepare-targets` then `zme b001` against `scaffold/zero-mass-element/tests/fixtures/*.csv`.
-- Agent task graph / acceptance: `docs/06_AGENT_EXECUTION_RUNBOOK.md`, `docs/07_ACCEPTANCE_GATES.md`, `agents/task_manifest.json`.
-- **Lint:** no ruff/flake8/mypy config in PEC/ZME scaffolds; use `python3 -m compileall` as a minimal syntax check. Global Variables patch optionally adds ruff under `reference/`.
-
-### Research baseline vs current scaffolds
-
-- Canonical research baseline: `docs/research/ElementZero_Initial_Research_Baseline_v0.1.md` (preserve; version successors separately).
-- That baseline prefers **commit-pinned Atlas PIR as upstream** (`Sovrance/Atlas`) over forking a long-lived `physics_evidence_core`. The current `scaffold/physics-evidence-core` is the v0.2 handoff extraction; treat Atlas-adapter work as the longer-term direction (Decision R-008), not as a reason to delete the scaffold during routine setup.
-- EZ-B001 is the preferred name for the historical mass benchmark; ZME-B001 remains the legacy CLI/scaffold name.
+- ElementZero tests/lint: `python -m pytest -q`, `ruff check src tests` (see root `README.md` / `.github/workflows/ci.yml`).
+- Bundle/scaffold smoke: `python3 scripts/validate_bundle.py` (expects `BUNDLE_VALIDATION: PASS`).
+- Research baseline: `docs/research/ElementZero_Initial_Research_Baseline_v0.1.md` (Decision R-008: Atlas upstream, not a long-lived PEC fork).
+- Agent task graph: `docs/06_AGENT_EXECUTION_RUNBOOK.md`, `docs/07_ACCEPTANCE_GATES.md`, `agents/task_manifest.json`.
 
 ### Optional / out of default E2E scope
 
 - `reference/global_variables_reusable_source` + `scripts/apply_global_variables_patch.sh` — migration/compat only.
-- Real AME data ingestion — not required for local scaffold validation.
+- Real AME data ingestion — not required for local synthetic EZ-B001 / scaffold validation.

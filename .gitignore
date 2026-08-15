@@ -10,3 +10,10 @@ build/
 venv/
 *.egg
 .DS_Store
+.env
+.cache/
+*.log
+run/
+.coverage
+htmlcov/
+.mypy_cache/

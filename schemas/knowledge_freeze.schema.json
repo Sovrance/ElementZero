@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elementzero.sovrance/schemas/knowledge_freeze.schema.json",
+  "title": "ElementZero KnowledgeFreeze",
+  "type": "object",
+  "required": [
+    "freeze_id",
+    "cutoff_date",
+    "allowed_source_hashes",
+    "allowed_edition_ids",
+    "training_nuclide_ids",
+    "training_identity_digest",
+    "forbidden_source_hashes",
+    "feature_policy_id",
+    "atlas_pir_ref",
+    "elementzero_commit"
+  ],
+  "properties": {
+    "freeze_id": { "type": "string" },
+    "benchmark_id": { "type": "string", "const": "EZ-B001" },
+    "legacy_id": { "type": "string", "const": "ZME-B001" },
+    "cutoff_date": { "type": "string" },
+    "allowed_source_hashes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 64, "maxLength": 64 }
+    },
+    "allowed_edition_ids": { "type": "array", "items": { "type": "string" } },
+    "training_nuclide_ids": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^Z[0-9]+-N[0-9]+$" }
+    },
+    "training_identity_digest": { "type": "string", "minLength": 64, "maxLength": 64 },
+    "forbidden_source_hashes": { "type": "array", "items": { "type": "string" } },
+    "feature_policy_id": { "type": "string" },
+    "feature_policy_hash": { "type": "string" },
+    "atlas_pir_ref": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "elementzero_commit": { "type": "string" },
+    "raw_source_hash": { "type": "string" },
+    "normalized_table_hash": { "type": "string" },
+    "normalizer_version": { "type": "string" }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elementzero.sovrance/schemas/target_manifest.schema.json",
+  "title": "EZ-B001 identity-only target manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["targets"],
+  "properties": {
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nuclide_id", "Z", "N", "A"],
+        "properties": {
+          "nuclide_id": { "type": "string", "pattern": "^Z[0-9]+-N[0-9]+$" },
+          "Z": { "type": "integer", "minimum": 0 },
+          "N": { "type": "integer", "minimum": 0 },
+          "A": { "type": "integer", "minimum": 0 }
+        },
+        "not": {
+          "anyOf": [
+            { "required": ["mass_excess_keV"] },
+            { "required": ["uncertainty_keV"] },
+            { "required": ["binding_energy"] },
+            { "required": ["measured_value"] },
+            { "required": ["truth"] }
+          ]
+        }
+      }
+    }
+  }
+}
