@@ -44,11 +44,15 @@ def prepare_targets(
     if known_source is not None:
         if not known_edition_id:
             raise ValueError("known_edition_id is required when known_source is set")
-        known_ids = {
-            obs.nuclide_id for obs in load_edition(known_edition_id, str(known_source))
+        # Subtract only ground-truth-eligible old identities. Old estimated rows
+        # are not training truth and must not remove a later non-estimated target.
+        old_eligible_ids = {
+            obs.nuclide_id
+            for obs in load_edition(known_edition_id, str(known_source))
+            if obs.ground_truth_eligible
         }
         # Identity subtraction only. Known-source masses never enter the target file.
-        targets = [t for t in targets if t["nuclide_id"] not in known_ids]
+        targets = [t for t in targets if t["nuclide_id"] not in old_eligible_ids]
     # Target files are identity-only. Edition/hash metadata belongs on the freeze
     # and score report, never beside later truth values.
     manifest = {"targets": targets}

@@ -1,0 +1,127 @@
+{
+  "package": "ElementZero Engineering Work Orders 01-10 v0.3",
+  "date": "2026-08-15",
+  "tasks": [
+    {
+      "id": "WO-01",
+      "title": "Data Correctness and AME Parser Certification",
+      "depends_on": [],
+      "blocks": [
+        "WO-02",
+        "WO-03",
+        "WO-05"
+      ],
+      "doc": "01_WO_DATA_CORRECTNESS.md"
+    },
+    {
+      "id": "WO-02",
+      "title": "Complete Atlas Evidence and Provenance Graph",
+      "depends_on": [
+        "WO-01"
+      ],
+      "blocks": [
+        "WO-05"
+      ],
+      "doc": "02_WO_EVIDENCE_GRAPH.md"
+    },
+    {
+      "id": "WO-03",
+      "title": "Scientific Scoring, Calibration, and Model Comparison",
+      "depends_on": [
+        "WO-01"
+      ],
+      "blocks": [
+        "WO-05"
+      ],
+      "doc": "03_WO_SCORING_AND_MODEL_COMPARISON.md"
+    },
+    {
+      "id": "WO-04",
+      "title": "Make Atlas PIR a Clean Upstream Dependency",
+      "depends_on": [
+        "WO-01"
+      ],
+      "blocks": [
+        "WO-05"
+      ],
+      "doc": "04_WO_ATLAS_UPSTREAM_PACKAGING.md"
+    },
+    {
+      "id": "WO-05",
+      "title": "Preregister EZ-B001-A",
+      "depends_on": [
+        "WO-01",
+        "WO-02",
+        "WO-03",
+        "WO-04"
+      ],
+      "blocks": [
+        "WO-06"
+      ],
+      "doc": "05_WO_PREREGISTER_EZ_B001_A.md"
+    },
+    {
+      "id": "WO-06",
+      "title": "Execute and Seal EZ-B001-A",
+      "depends_on": [
+        "WO-05"
+      ],
+      "blocks": [
+        "WO-07",
+        "WO-08"
+      ],
+      "doc": "06_WO_RUN_EZ_B001_A.md"
+    },
+    {
+      "id": "WO-07",
+      "title": "Repeat Historical Epochs",
+      "depends_on": [
+        "WO-06"
+      ],
+      "blocks": [
+        "WO-08"
+      ],
+      "doc": "07_WO_REPEAT_HISTORICAL_EPOCHS.md"
+    },
+    {
+      "id": "WO-08",
+      "title": "Publish Historical Benchmark Report v1",
+      "depends_on": [
+        "WO-07"
+      ],
+      "blocks": [
+        "WO-09"
+      ],
+      "doc": "08_WO_HISTORICAL_BENCHMARK_REPORT.md"
+    },
+    {
+      "id": "WO-09",
+      "title": "Implement EZ-B002 Geographic Holdout",
+      "depends_on": [
+        "WO-08"
+      ],
+      "blocks": [
+        "WO-10"
+      ],
+      "doc": "09_WO_EZ_B002_GEOGRAPHIC_HOLDOUT.md"
+    },
+    {
+      "id": "WO-10",
+      "title": "Implement EZ-B003 Hidden Shell Challenge",
+      "depends_on": [
+        "WO-09"
+      ],
+      "blocks": [],
+      "doc": "10_WO_EZ_B003_HIDDEN_SHELL.md"
+    }
+  ],
+  "parallelism": [
+    {
+      "after": "WO-01",
+      "may_run_in_parallel": [
+        "WO-02",
+        "WO-03"
+      ]
+    }
+  ]
+}

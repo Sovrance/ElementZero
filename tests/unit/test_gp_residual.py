@@ -12,7 +12,7 @@ def _obs(z: int, n: int) -> MassObservation:
         uncertainty_keV=10.0,
         source_edition="AME2003",
         source_release_date="2003-12-22",
-        source_record_status="experimental",
+        source_record_status="evaluated_non_estimated",
         raw_source_hash="cd" * 32,
     )
 

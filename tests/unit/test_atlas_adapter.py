@@ -17,7 +17,7 @@ def _obs(*, estimated: bool = False) -> MassObservation:
         uncertainty_keV=0.1,
         source_edition="AME2003",
         source_release_date="2003-12-22",
-        source_record_status="estimated" if estimated else "experimental",
+        source_record_status="evaluated_estimated" if estimated else "evaluated_non_estimated",
         raw_source_hash="ab" * 32,
     )
 

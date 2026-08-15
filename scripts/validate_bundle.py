@@ -17,7 +17,7 @@ for p in list((ROOT/'docs').glob('*.md'))+list((ROOT/'agents').glob('*.md'))+[RO
     if text.count('```') % 2: fail(f'unbalanced code fences: {p.relative_to(ROOT)}')
 
 # 3. Normative math docs have ASCII text blocks.
-for rel in ['README.md','docs/01_ZME_V0.2_ENGINEERING_SPEC.md','docs/05_ZME_B001_HISTORICAL_MASS_PREDICTION.md','docs/08_MATH_READABILITY_STANDARD.md']:
+for rel in ['README.md','docs/legacy/01_ZME_V0.2_ENGINEERING_SPEC.md','docs/legacy/05_ZME_B001_HISTORICAL_MASS_PREDICTION.md','docs/08_MATH_READABILITY_STANDARD.md']:
     text=(ROOT/rel).read_text(encoding='utf-8')
     blocks=re.findall(r'```text\n(.*?)```',text,re.S)
     if not blocks: fail(f'no ASCII text blocks in {rel}')

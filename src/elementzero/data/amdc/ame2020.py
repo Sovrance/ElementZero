@@ -11,7 +11,8 @@ EDITION = EditionSpec(
     edition_id="AME2020",
     release_date="2021-03-01",
     columns=AME_MAS20_COLUMNS,
-    filename_hints=("mass.mas20", "mass.mas20.txt"),
+    filename_hints=("mass.mas20", "mass.mas20.txt", "mass_1.mas20.txt"),
+    year=2020,
 )
 
 

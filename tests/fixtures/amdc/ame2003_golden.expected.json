@@ -1,0 +1,41 @@
+[
+  {
+    "A": 4,
+    "N": 2,
+    "Z": 2,
+    "element_symbol": "He",
+    "estimated_mass": false,
+    "estimated_uncertainty": false,
+    "ground_truth_eligible": true,
+    "mass_excess_keV": 2424.91565,
+    "source_origin": "",
+    "source_record_status": "evaluated_non_estimated",
+    "uncertainty_keV": 6e-05
+  },
+  {
+    "A": 5,
+    "N": 1,
+    "Z": 4,
+    "element_symbol": "Be",
+    "estimated_mass": true,
+    "estimated_uncertainty": true,
+    "ground_truth_eligible": false,
+    "mass_excess_keV": 37996.0,
+    "source_origin": "x",
+    "source_record_status": "extrapolated",
+    "uncertainty_keV": 3996.0
+  },
+  {
+    "A": 16,
+    "N": 8,
+    "Z": 8,
+    "element_symbol": "O",
+    "estimated_mass": false,
+    "estimated_uncertainty": false,
+    "ground_truth_eligible": true,
+    "mass_excess_keV": -4737.00141,
+    "source_origin": "",
+    "source_record_status": "evaluated_non_estimated",
+    "uncertainty_keV": 0.00016
+  }
+]

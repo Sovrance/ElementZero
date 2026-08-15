@@ -13,7 +13,8 @@ protocol.
 ```bash
 python -m pip install --upgrade pip
 python tools/ensure_atlas_pir.py
-python -m pip install -e '.[dev]'
+python -m pip install numpy scipy scikit-learn pytest ruff
+python -m pip install -e . --no-deps
 ```
 
 `tools/ensure_atlas_pir.py` clones the immutable SHA in `atlas.lock.json`.
@@ -39,8 +40,10 @@ ElementZero consumes Atlas through a pinned dependency and a thin adapter.
 ElementZero MUST NOT copy, fork, or silently modify Atlas PIR source.
 ```
 
-## Research baseline and legacy handoff
+## Research baseline and work orders
 
-- Canonical research basis: `docs/research/ElementZero_Initial_Research_Baseline_v0.1.md` (preserve; version successors separately).
-- Agent handoff docs / task graph: start at `docs/00_EXECUTIVE_HANDOFF.md` and `agents/task_manifest.json`.
-- Legacy ZME/PEC scaffolds under `scaffold/` remain for historical validation (`python scripts/validate_bundle.py`). Prefer the installable `elementzero` package and Atlas pin above for new work.
+- Canonical research basis: `docs/research/ElementZero_Initial_Research_Baseline_v0.1.md`
+- Engineering work orders: `docs/work_orders/v0.3/` (start at `00_MASTER_EXECUTION_ORDER.md`)
+- Agent handoff docs / task graph: `docs/00_EXECUTIVE_HANDOFF.md`, `agents/task_manifest.json`
+- Superseded ZME/PEC engineering docs: `docs/legacy/` (non-normative)
+- Legacy scaffolds under `scaffold/` remain for `python scripts/validate_bundle.py` smoke only

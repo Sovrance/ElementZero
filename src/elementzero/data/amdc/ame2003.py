@@ -12,6 +12,7 @@ EDITION = EditionSpec(
     release_date="2003-12-22",
     columns=AME_MAS03_COLUMNS,
     filename_hints=("mass.mas03", "mass.mas03.txt"),
+    year=2003,
 )
 
 

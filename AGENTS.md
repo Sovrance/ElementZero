@@ -23,7 +23,9 @@ Primary product is the installable **`elementzero`** package (`src/elementzero/`
 - ElementZero tests/lint: `python -m pytest -q`, `ruff check src tests` (see root `README.md` / `.github/workflows/ci.yml`).
 - Bundle/scaffold smoke: `python3 scripts/validate_bundle.py` (expects `BUNDLE_VALIDATION: PASS`).
 - Research baseline: `docs/research/ElementZero_Initial_Research_Baseline_v0.1.md` (Decision R-008: Atlas upstream, not a long-lived PEC fork).
+- Engineering work orders: `docs/work_orders/v0.3/00_MASTER_EXECUTION_ORDER.md` (one WO per PR; WO-01 first).
 - Agent task graph: `docs/06_AGENT_EXECUTION_RUNBOOK.md`, `docs/07_ACCEPTANCE_GATES.md`, `agents/task_manifest.json`.
+- Superseded ZME/PEC docs live under `docs/legacy/` (non-normative).
 
 ### Optional / out of default E2E scope
 
