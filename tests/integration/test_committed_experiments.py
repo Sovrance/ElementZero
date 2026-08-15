@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from elementzero.experiments.epochs import EPOCH_ORDER
+from elementzero.benchmark.model_suite import COMPARISON_JSON_NAME, SUITE_MODEL_IDS
+from elementzero.experiments.epochs import EPOCH_ORDER, epoch_for
 from elementzero.experiments.preregister import (
     EXPERIMENT_PROTOCOL_VERSION,
     PREREGISTRATION_FILES,
@@ -22,6 +23,7 @@ from elementzero.experiments.preregister import (
     preregistration_hash,
     validate_preregistration,
 )
+from elementzero.experiments.runner import replay_experiment, verify_sha256sums
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXPERIMENTS = REPO_ROOT / "experiments"
@@ -62,6 +64,36 @@ def test_committed_preregistration_hash_is_reproducible(experiment_dir):
     assert recorded == preregistration_hash(experiment_dir)
     for name in PREREGISTRATION_FILES:
         assert (experiment_dir / name).is_file()
+
+
+def test_committed_artifact_hashes_verify(experiment_dir):
+    report = verify_sha256sums(experiment_dir)
+    assert report["ok"], report
+
+
+def test_every_scored_epoch_reports_every_model(experiment_dir):
+    comparison_path = experiment_dir / COMPARISON_JSON_NAME
+    if not comparison_path.is_file():
+        pytest.skip(f"{experiment_dir.name} is preregistered but not scored yet")
+    comparison = json.loads(comparison_path.read_text(encoding="utf-8"))
+    assert [row["model_id"] for row in comparison["rows"]] == list(SUITE_MODEL_IDS)
+
+
+def test_committed_replay_matches_committed_metrics(experiment_dir):
+    """Replay the committed seal against the raw truth table, without refitting.
+
+    The raw AME tables are not committed (they are licensed upstream files kept
+    out of git), so a checkout without ``data/raw`` skips instead of failing.
+    """
+    epoch = epoch_for(experiment_dir.name)
+    truth_source = REPO_ROOT / epoch.truth_relpath
+    if not truth_source.is_file() or not (experiment_dir / COMPARISON_JSON_NAME).is_file():
+        pytest.skip(f"{epoch.truth_edition} raw table or scoring is absent in this checkout")
+    report = replay_experiment(epoch=epoch, experiment_dir=experiment_dir, root=REPO_ROOT)
+    assert report["status"] == "REPLAY_MATCHES_COMMITTED_METRICS"
+    assert report["refit"] is False
+    assert [m["model_id"] for m in report["models"]] == list(SUITE_MODEL_IDS)
+    assert all(m["matches"] for m in report["models"])
 
 
 def test_committed_preregistrations_share_one_protocol(request):
