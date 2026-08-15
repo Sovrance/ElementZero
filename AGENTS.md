@@ -13,7 +13,7 @@ Primary product is the installable **`elementzero`** package (`src/elementzero/`
 
 ### Startup / install caveats
 
-- Preferred install: `python tools/ensure_atlas_pir.py` then `python -m pip install -e '.[dev]'`. Do not depend on Atlas `main`; use the SHA in `atlas.lock.json`.
+- Preferred install matches CI: `python tools/ensure_atlas_pir.py`, install runtime/dev deps, then `python -m pip install -e . --no-deps`. Do not depend on Atlas `main`; use the SHA in `atlas.lock.json`. Plain `pip install -e '.[dev]'` fails because the pinned Atlas SHA is not yet a publishable package without the ensure overlay.
 - Editable installs put `elementzero` / `zme` / `pytest` in `~/.local/bin`. Ensure that directory is on `PATH`.
 - Root `schemas/nuclear_observation.schema.json` and `schemas/prediction_certificate.schema.json` describe the **ElementZero** contracts. Scaffold/PEC certificate shapes differ and are not loaded from these files.
 - Synthetic fixtures are software smoke only, not scientific evidence. Official AME runs need external AMDC/NNDC downloads.
