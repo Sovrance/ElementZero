@@ -24,6 +24,9 @@ RECORD_STATUS_ESTIMATED = RECORD_STATUS_EVALUATED_ESTIMATED  # deprecated name
 
 GROUND_TRUTH_ELIGIBLE_STATUSES = frozenset({RECORD_STATUS_EVALUATED_NON_ESTIMATED})
 
+# Named, citable policy for what may act as ground truth in EZ-B001.
+GROUND_TRUTH_POLICY = "ez-gt-policy-v1:evaluated_non_estimated_only"
+
 
 @dataclass(frozen=True)
 class MassObservation:

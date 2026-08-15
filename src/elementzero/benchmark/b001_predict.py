@@ -1,19 +1,37 @@
-"""Blind prediction: fit and predict using only KnowledgeFreeze-allowed objects."""
+"""Blind prediction: fit and predict using only KnowledgeFreeze-allowed objects.
+
+The Atlas lineage written here is the compact WO-02 graph:
+
+    artifact -> training dataset -> knowledge freeze -> model fit
+             -> prediction (one per target) -> prediction set
+
+No prediction depends on a single arbitrary observation, and no later-edition
+truth is reachable from this process.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
+from elementzero import BENCHMARK_PROTOCOL_VERSION
 from elementzero.data.amdc import load_edition
+from elementzero.data.amdc.common import PARSER_VERSION
 from elementzero.data.identity import NuclideIdentity
+from elementzero.data.observations import GROUND_TRUTH_POLICY
 from elementzero.errors import LeakageError
-from elementzero.evidence.atlas_adapter import NUCLEAR_MASS_INTERFACE, AtlasEvidenceAdapter
+from elementzero.evidence.atlas_adapter import (
+    NUCLEAR_MASS_INTERFACE,
+    AtlasEvidenceAdapter,
+    stable_source_uri,
+    write_atlas_bundle,
+)
 from elementzero.evidence.certificates import make_certificate
 from elementzero.evidence.freezes import (
     KnowledgeFreeze,
     assert_holdout_disjoint,
     assert_training_digest,
+    identity_digest,
     validate_target_record,
 )
 from elementzero.evidence.hashing import sha256_file
@@ -78,13 +96,23 @@ def predict_run(
 
     model = build_model(model_id)
     model.fit(observations)
-    assert_training_digest(freeze, model.manifest()["fitted_nuclide_ids"])
+    model_payload = model.manifest()
+    assert_training_digest(freeze, model_payload["fitted_nuclide_ids"])
+
+    manifest = model_manifest(
+        model_id=model_id,
+        model_payload=model_payload,
+        freeze_id=freeze.freeze_id,
+        feature_policy_id=freeze.feature_policy_id,
+    )
+    m_hash = manifest_hash(manifest)
 
     adapter = AtlasEvidenceAdapter(created_at=created_at)
+    created = adapter.created_at
     raw = training_source.read_bytes()
     artifact = adapter.source_artifact(
         raw,
-        source_uri=training_source.resolve().as_uri(),
+        source_uri=stable_source_uri(training_source),
         acquired_at=freeze.cutoff_date,
     )
     event = adapter.observation_event(artifact)
@@ -94,29 +122,74 @@ def predict_run(
         used=(),
         generated=(artifact.artifact_id,),
     )
-    obs_facts = []
-    for obs in observations:
-        fact = adapter.observation_fact(obs, artifact=artifact, event=event)
-        adapter.append_fact(fact)
-        obs_facts.append(fact)
-        adapter.append_provenance(
-            entity=fact.fact_id,
-            activity_type="LOWER",
-            used=(artifact.artifact_id,),
-            generated=(fact.fact_id,),
-        )
+
+    # Aggregate training-corpus identity: hashes and digests, not every datum.
+    training_fact = adapter.training_dataset_fact(
+        artifact=artifact,
+        edition_id=training_edition_id,
+        raw_source_hash=freeze.raw_source_hash,
+        normalized_table_hash=freeze.normalized_table_hash,
+        training_identity_digest=freeze.training_identity_digest,
+        training_count=len(observations),
+        normalizer_version=freeze.normalizer_version,
+        parser_version=PARSER_VERSION,
+        ground_truth_policy=GROUND_TRUTH_POLICY,
+        event=event,
+    )
+    adapter.append_fact(training_fact)
+    adapter.append_provenance(
+        entity=training_fact.fact_id,
+        activity_type="LOWER",
+        used=(artifact.artifact_id,),
+        generated=(training_fact.fact_id,),
+    )
+
+    freeze_fact = adapter.knowledge_freeze_fact(
+        freeze_id=freeze.freeze_id,
+        cutoff_date=freeze.cutoff_date,
+        allowed_source_hashes=freeze.allowed_source_hashes,
+        forbidden_source_hashes=freeze.forbidden_source_hashes,
+        allowed_edition_ids=freeze.allowed_edition_ids,
+        training_identity_digest=freeze.training_identity_digest,
+        feature_policy_id=freeze.feature_policy_id,
+        feature_policy_hash=freeze.feature_policy_hash,
+        training_dataset_fact_id=training_fact.fact_id,
+        atlas_pir_ref=freeze.atlas_pir_ref,
+        elementzero_commit=freeze.elementzero_commit,
+    )
+    adapter.append_fact(freeze_fact)
+    adapter.append_provenance(
+        entity=freeze_fact.fact_id,
+        activity_type="TRANSFORM",
+        used=(training_fact.fact_id,),
+        generated=(freeze_fact.fact_id,),
+    )
+
+    fit_fact = adapter.model_fit_fact(
+        model_id=model_id,
+        model_manifest_hash=m_hash,
+        freeze_id=freeze.freeze_id,
+        training_identity_digest=freeze.training_identity_digest,
+        fitted_nuclide_count=len(model_payload["fitted_nuclide_ids"]),
+        feature_policy_id=freeze.feature_policy_id,
+        random_state=int(manifest["random_seed"]),
+        runtime_versions=runtime_library_versions(),
+        knowledge_freeze_fact_id=freeze_fact.fact_id,
+        training_dataset_fact_id=training_fact.fact_id,
+        uncertainty_method=manifest["uncertainty_method"],
+    )
+    adapter.append_fact(fit_fact)
+    adapter.append_provenance(
+        entity=fit_fact.fact_id,
+        activity_type="ANALYZE",
+        agent_id="elementzero.models.predict",
+        used=(freeze_fact.fact_id, training_fact.fact_id),
+        generated=(fit_fact.fact_id,),
+    )
 
     predictions = []
     certificates = []
     pred_facts = []
-    manifest = model_manifest(
-        model_id=model_id,
-        model_payload=model.manifest(),
-        freeze_id=freeze.freeze_id,
-        feature_policy_id=freeze.feature_policy_id,
-    )
-    m_hash = manifest_hash(manifest)
-    created = adapter.created_at
     identity = provenance_identity()
     for target in targets:
         pred = model.predict(NuclideIdentity.from_zn(int(target["Z"]), int(target["N"])))
@@ -129,7 +202,9 @@ def predict_run(
             intervals=pred.intervals,
             model_id=model_id,
             freeze_id=freeze.freeze_id,
-            depends_on_facts=[f.fact_id for f in obs_facts[:1]],
+            model_fit_fact_id=fit_fact.fact_id,
+            std_keV=pred.std_keV,
+            uncertainty_method=pred.uncertainty_method,
         )
         adapter.append_fact(fact)
         pred_facts.append(fact)
@@ -137,13 +212,15 @@ def predict_run(
             entity=fact.fact_id,
             activity_type="ANALYZE",
             agent_id="elementzero.models.predict",
-            used=tuple(f.fact_id for f in obs_facts[:1]),
+            used=(fit_fact.fact_id,),
             generated=(fact.fact_id,),
         )
         cert = make_certificate(
             nuclide_id=pred.nuclide.nuclide_id,
             prediction_keV=pred.mass_excess_keV,
             intervals=pred.intervals,
+            predictive_std_keV=pred.std_keV,
+            uncertainty_method=pred.uncertainty_method,
             model_id=model_id,
             model_manifest_hash=m_hash,
             freeze_id=freeze.freeze_id,
@@ -159,33 +236,84 @@ def predict_run(
         predictions.append(pred.to_dict())
         certificates.append(cert.to_dict())
 
+    write_run_artifact(run_dir, "freeze", freeze.to_dict())
+    write_run_artifact(run_dir, "model_manifest", manifest)
+    predictions_hash = write_run_artifact(run_dir, "predictions", predictions)
+    certificates_hash = write_run_artifact(run_dir, "certificates", certificates)
+
+    target_ids = [t["nuclide_id"] for t in targets]
+    set_fact = adapter.prediction_set_fact(
+        model_id=model_id,
+        freeze_id=freeze.freeze_id,
+        target_identity_digest=identity_digest(target_ids),
+        n_predictions=len(predictions),
+        predictions_file_hash=predictions_hash,
+        certificates_file_hash=certificates_hash,
+        prediction_fact_ids=[f.fact_id for f in pred_facts],
+    )
+    adapter.append_fact(set_fact)
+    adapter.append_provenance(
+        entity=set_fact.fact_id,
+        activity_type="ANALYZE",
+        agent_id="elementzero.models.predict",
+        used=tuple(sorted(f.fact_id for f in pred_facts)),
+        generated=(set_fact.fact_id,),
+    )
+
+    graph_facts = [training_fact, freeze_fact, fit_fact, *pred_facts, set_fact]
+    atlas_bundle = write_atlas_bundle(
+        run_dir,
+        stage="predict",
+        facts=graph_facts,
+        provenance=adapter.store.provenance(),
+        artifacts=[artifact],
+        events=[event],
+    )
+
     run_manifest = {
         "benchmark_id": "EZ-B001",
         "legacy_id": "ZME-B001",
+        "protocol_version": BENCHMARK_PROTOCOL_VERSION,
         "stage": "predict",
         "run_id": run_dir.name,
         "freeze_id": freeze.freeze_id,
         "model_id": model_id,
         "model_manifest_hash": m_hash,
-        "target_ids": [t["nuclide_id"] for t in targets],
+        "predictive_distribution": manifest["predictive_distribution"],
+        "uncertainty_method": manifest["uncertainty_method"],
+        "target_ids": target_ids,
+        "target_identity_digest": identity_digest(target_ids),
         "observable": NUCLEAR_MASS_INTERFACE,
         "library_versions": runtime_library_versions(),
-        "random_seeds": {"model": 0},
+        "random_seeds": {"model": int(manifest["random_seed"])},
         "source_hashes": list(freeze.allowed_source_hashes),
         "normalizer_version": freeze.normalizer_version,
+        "parser_version": PARSER_VERSION,
+        "ground_truth_policy": GROUND_TRUTH_POLICY,
         "feature_policy_id": freeze.feature_policy_id,
+        "predictions_file_hash": predictions_hash,
+        "certificates_file_hash": certificates_hash,
+        "training_dataset_fact_id": training_fact.fact_id,
+        "knowledge_freeze_fact_id": freeze_fact.fact_id,
+        "model_fit_fact_id": fit_fact.fact_id,
         "prediction_fact_ids": [f.fact_id for f in pred_facts],
+        "prediction_set_fact_id": set_fact.fact_id,
+        "atlas_bundle_hashes": atlas_bundle,
         **identity,
     }
-    write_run_artifact(run_dir, "freeze", freeze.to_dict())
-    write_run_artifact(run_dir, "model_manifest", manifest)
-    write_run_artifact(run_dir, "predictions", predictions)
-    write_run_artifact(run_dir, "certificates", certificates)
     write_run_artifact(run_dir, "run_manifest", run_manifest)
     return {
         "run_dir": str(run_dir),
         "predictions": predictions,
         "certificates": certificates,
         "run_manifest": run_manifest,
+        "atlas_bundle_hashes": atlas_bundle,
         "adapter": adapter,
+        "facts": {
+            "training_dataset": training_fact,
+            "knowledge_freeze": freeze_fact,
+            "model_fit": fit_fact,
+            "predictions": pred_facts,
+            "prediction_set": set_fact,
+        },
     }

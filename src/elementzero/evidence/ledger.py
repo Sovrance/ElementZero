@@ -75,6 +75,14 @@ def finalize_run(run_dir: Path) -> dict[str, Any]:
     return marker
 
 
+def finalization_marker_hash(run_dir: Path) -> str:
+    """Hash of the immutable LEDGER_FINALIZED marker itself."""
+    path = Path(run_dir) / LEDGER_FILENAME
+    if not path.is_file():
+        raise ProtocolError("prediction ledger was not finalized")
+    return sha256_hex(path.read_bytes().rstrip(b"\n"))
+
+
 def load_finalization(run_dir: Path) -> dict[str, Any]:
     path = Path(run_dir) / LEDGER_FILENAME
     if not path.is_file():

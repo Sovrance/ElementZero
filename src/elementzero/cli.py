@@ -11,6 +11,7 @@ from elementzero.benchmark.b001_freeze import freeze_training, load_freeze
 from elementzero.benchmark.b001_predict import load_targets, predict_run
 from elementzero.benchmark.b001_prepare import prepare_targets
 from elementzero.benchmark.b001_score import score_run
+from elementzero.benchmark.model_suite import run_suite, score_suite
 from elementzero.evidence.hashing import canonical_json
 from elementzero.models.gp_residual import MODEL_ID_SEMF_GP
 
@@ -53,6 +54,17 @@ def build_parser() -> argparse.ArgumentParser:
     predict.add_argument("--out", required=True)
     predict.add_argument("--model", default=MODEL_ID_SEMF_GP)
 
+    suite_predict = bsub.add_parser(
+        "suite-predict",
+        help="blind prediction for the frozen three-model suite (one sealed run per model)",
+    )
+    suite_predict.add_argument("--benchmark", default=BENCHMARK_EZ_B001)
+    suite_predict.add_argument("--freeze", required=True)
+    suite_predict.add_argument("--targets", required=True)
+    suite_predict.add_argument("--training-source", required=True)
+    suite_predict.add_argument("--edition", default="AME2003")
+    suite_predict.add_argument("--out", required=True, help="suite directory")
+
     fin = bsub.add_parser("finalize", help="write LEDGER_FINALIZED")
     fin.add_argument("--run", required=True)
 
@@ -61,6 +73,15 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_argument("--truth-source", required=True)
     score.add_argument("--edition", default="AME2020")
     score.add_argument("--out", required=True)
+
+    suite_score = bsub.add_parser(
+        "suite-score",
+        help="score every sealed suite run and write model_comparison.json/.md",
+    )
+    suite_score.add_argument("--suite", required=True, help="suite directory")
+    suite_score.add_argument("--truth-source", required=True)
+    suite_score.add_argument("--edition", default="AME2020")
+    suite_score.add_argument("--out", default=None, help="defaults to the suite directory")
     return parser
 
 
@@ -107,6 +128,27 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(canonical_json({"run": result["run_dir"], "n": len(result["predictions"])}))
         return 0
+    if cmd == "suite-predict":
+        _require_benchmark(args.benchmark)
+        if hasattr(args, "truth_source") or "--truth" in (argv or sys.argv):
+            raise SystemExit("suite-predict must not accept a later-truth file argument")
+        suite = run_suite(
+            freeze=load_freeze(args.freeze),
+            targets=load_targets(args.targets),
+            training_source=args.training_source,
+            training_edition_id=args.edition,
+            suite_dir=args.out,
+        )
+        print(
+            canonical_json(
+                {
+                    "model_suite_id": suite["model_suite_id"],
+                    "model_ids": suite["model_ids"],
+                    "suite_dir": suite["suite_dir"],
+                }
+            )
+        )
+        return 0
     if cmd == "finalize":
         marker = finalize(args.run)
         print(canonical_json({"marker": marker["marker"]}))
@@ -119,6 +161,24 @@ def main(argv: list[str] | None = None) -> int:
             out_dir=args.out,
         )
         print(canonical_json({"metrics": report["metrics"]}))
+        return 0
+    if cmd == "suite-score":
+        comparison = score_suite(
+            suite_dir=args.suite,
+            truth_source=args.truth_source,
+            truth_edition_id=args.edition,
+            out_dir=args.out,
+        )
+        print(
+            canonical_json(
+                {
+                    "columns": comparison["columns"],
+                    "rows": [
+                        {c: row[c] for c in comparison["columns"]} for row in comparison["rows"]
+                    ],
+                }
+            )
+        )
         return 0
     parser.error(f"unknown benchmark command {cmd}")
     return 2
