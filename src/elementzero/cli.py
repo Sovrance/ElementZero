@@ -93,6 +93,12 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--input-root", default=".")
     build.add_argument("--layout", default=DEFAULT_LAYOUT)
     build.add_argument("--output-root", default="reports/visuals/")
+    build.add_argument(
+        "--update-readme",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="replace the README visual snapshot (default: yes when --input-root is the repo root)",
+    )
     return parser
 
 
@@ -124,6 +130,7 @@ def _run_visual(args: argparse.Namespace) -> int:
             input_root=args.input_root,
             output_root=args.output_root,
             layout_profile=args.layout,
+            update_readme=args.update_readme,
         )
         print(
             canonical_json(
