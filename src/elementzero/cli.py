@@ -20,6 +20,11 @@ from elementzero.experiments.preregister import (
     validate_preregistration,
     write_preregistration,
 )
+from elementzero.experiments.runner import (
+    replay_experiment,
+    score_experiment,
+    seal_experiment,
+)
 from elementzero.models.gp_residual import MODEL_ID_SEMF_GP
 
 
@@ -92,6 +97,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="recompute the preregistration hash and check every WO-05 gate",
     )
     validate.add_argument("--experiment", required=True, help="experiment directory")
+
+    seal = bsub.add_parser(
+        "seal-experiment",
+        help="audit, target, freeze, blind-predict, finalize, and seal one epoch (no truth read)",
+    )
+    seal.add_argument("--experiment", required=True, help="experiment id, e.g. EZ-B001-A")
+    seal.add_argument("--dir", default=None, help="defaults to experiments/<experiment>")
+    seal.add_argument(
+        "--verify",
+        action="store_true",
+        help="run ruff and pytest first and record the result in environment.json",
+    )
+    seal.add_argument(
+        "--in-process",
+        action="store_true",
+        help="predict in this process instead of a separate blind-workspace process",
+    )
+
+    score_exp = bsub.add_parser(
+        "score-experiment",
+        help="unlock truth for a sealed epoch, score every model, and compare them",
+    )
+    score_exp.add_argument("--experiment", required=True, help="experiment id, e.g. EZ-B001-A")
+    score_exp.add_argument("--dir", default=None, help="defaults to experiments/<experiment>")
+
+    replay = bsub.add_parser(
+        "replay",
+        help="recompute metrics from sealed predictions and truth without refitting",
+    )
+    replay.add_argument("--experiment", required=True, help="experiment id, e.g. EZ-B001-B")
+    replay.add_argument("--dir", default=None, help="defaults to experiments/<experiment>")
 
     predict = bsub.add_parser("predict", help="blind prediction (no later-truth argument)")
     predict.add_argument("--benchmark", default=BENCHMARK_EZ_B001)
@@ -195,6 +231,46 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if cmd == "validate-preregistration":
         print(canonical_json(validate_preregistration(args.experiment)))
+        return 0
+    if cmd == "seal-experiment":
+        epoch = epoch_for(args.experiment)
+        result = seal_experiment(
+            epoch=epoch,
+            experiment_dir=args.dir,
+            verify=args.verify,
+            subprocess_prediction=not args.in_process,
+        )
+        print(
+            canonical_json(
+                {
+                    "experiment_id": epoch.experiment_id,
+                    "experiment_dir": result["experiment_dir"],
+                    "n_targets": result["n_targets"],
+                    "sealed_predictions_sha256": result["sealed_predictions_sha256"],
+                    "state": result["sealed"]["state"],
+                }
+            )
+        )
+        return 0
+    if cmd == "score-experiment":
+        epoch = epoch_for(args.experiment)
+        result = score_experiment(epoch=epoch, experiment_dir=args.dir)
+        print(
+            canonical_json(
+                {
+                    "experiment_id": epoch.experiment_id,
+                    "columns": result["comparison"]["columns"],
+                    "rows": [
+                        {c: row[c] for c in result["comparison"]["columns"]}
+                        for row in result["comparison"]["rows"]
+                    ],
+                }
+            )
+        )
+        return 0
+    if cmd == "replay":
+        epoch = epoch_for(args.experiment)
+        print(canonical_json(replay_experiment(epoch=epoch, experiment_dir=args.dir)))
         return 0
     if cmd == "predict":
         _require_benchmark(args.benchmark)
