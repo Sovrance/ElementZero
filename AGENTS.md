@@ -24,6 +24,12 @@ This repository is a **local Python research stack** (no web app, Docker, or dat
 - Agent task graph / acceptance: `docs/06_AGENT_EXECUTION_RUNBOOK.md`, `docs/07_ACCEPTANCE_GATES.md`, `agents/task_manifest.json`.
 - **Lint:** no ruff/flake8/mypy config in PEC/ZME scaffolds; use `python3 -m compileall` as a minimal syntax check. Global Variables patch optionally adds ruff under `reference/`.
 
+### Research baseline vs current scaffolds
+
+- Canonical research baseline: `docs/research/ElementZero_Initial_Research_Baseline_v0.1.md` (preserve; version successors separately).
+- That baseline prefers **commit-pinned Atlas PIR as upstream** (`Sovrance/Atlas`) over forking a long-lived `physics_evidence_core`. The current `scaffold/physics-evidence-core` is the v0.2 handoff extraction; treat Atlas-adapter work as the longer-term direction (Decision R-008), not as a reason to delete the scaffold during routine setup.
+- EZ-B001 is the preferred name for the historical mass benchmark; ZME-B001 remains the legacy CLI/scaffold name.
+
 ### Optional / out of default E2E scope
 
 - `reference/global_variables_reusable_source` + `scripts/apply_global_variables_patch.sh` — migration/compat only.

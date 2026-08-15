@@ -1,6 +1,10 @@
 # Source Registry for Agent Follow-up
 
-This release depends on the v0.1 research dossier included under `reference/v0.1_baseline/` and the project landscape summarized in `docs/10_RESEARCH_DEPENDENCY_MAP.md`.
+Canonical research baseline (preserve; do not rewrite):
+
+- `docs/research/ElementZero_Initial_Research_Baseline_v0.1.md`
+
+This release also depends on the v0.1 research dossier under `reference/v0.1_baseline/` and the project landscape in `docs/10_RESEARCH_DEPENDENCY_MAP.md`.
 
 Primary data authorities for ZME-B001:
 
