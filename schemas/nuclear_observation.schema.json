@@ -1,0 +1,73 @@
+{
+  "$id": "zme:nuclear_observation:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "A": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "N": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "Z": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "ground_truth_eligible": {
+      "type": "boolean"
+    },
+    "mass_excess_keV": {
+      "type": "number"
+    },
+    "normalizer_version": {
+      "type": "string"
+    },
+    "nuclide_id": {
+      "pattern": "^Z[0-9]+-N[0-9]+$",
+      "type": "string"
+    },
+    "raw_source_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "raw_source_line": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_edition": {
+      "type": "string"
+    },
+    "source_record_status": {
+      "type": "string"
+    },
+    "source_release_date": {
+      "format": "date",
+      "type": "string"
+    },
+    "uncertainty_keV": {
+      "minimum": 0,
+      "type": [
+        "number",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "nuclide_id",
+    "Z",
+    "N",
+    "A",
+    "mass_excess_keV",
+    "source_edition",
+    "source_release_date",
+    "source_record_status",
+    "ground_truth_eligible",
+    "raw_source_hash",
+    "normalizer_version"
+  ],
+  "type": "object"
+}
