@@ -10,6 +10,8 @@
     "allowed_edition_ids",
     "training_nuclide_ids",
     "training_identity_digest",
+    "target_nuclide_ids",
+    "target_identity_digest",
     "forbidden_source_hashes",
     "feature_policy_id",
     "atlas_pir_ref",
@@ -30,6 +32,11 @@
       "items": { "type": "string", "pattern": "^Z[0-9]+-N[0-9]+$" }
     },
     "training_identity_digest": { "type": "string", "minLength": 64, "maxLength": 64 },
+    "target_nuclide_ids": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^Z[0-9]+-N[0-9]+$" }
+    },
+    "target_identity_digest": { "type": "string", "minLength": 64, "maxLength": 64 },
     "forbidden_source_hashes": { "type": "array", "items": { "type": "string" } },
     "feature_policy_id": { "type": "string" },
     "feature_policy_hash": { "type": "string" },

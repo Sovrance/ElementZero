@@ -26,6 +26,8 @@ class KnowledgeFreeze:
     allowed_edition_ids: tuple[str, ...]
     training_nuclide_ids: tuple[str, ...]
     training_identity_digest: str
+    target_nuclide_ids: tuple[str, ...]
+    target_identity_digest: str
     forbidden_source_hashes: tuple[str, ...]
     feature_policy_id: str
     atlas_pir_ref: str
@@ -47,6 +49,8 @@ class KnowledgeFreeze:
             "allowed_edition_ids": list(self.allowed_edition_ids),
             "training_nuclide_ids": list(self.training_nuclide_ids),
             "training_identity_digest": self.training_identity_digest,
+            "target_nuclide_ids": list(self.target_nuclide_ids),
+            "target_identity_digest": self.target_identity_digest,
             "forbidden_source_hashes": list(self.forbidden_source_hashes),
             "feature_policy_id": self.feature_policy_id,
             "feature_policy_hash": self.feature_policy_hash,
@@ -66,6 +70,8 @@ class KnowledgeFreeze:
             allowed_edition_ids=tuple(data["allowed_edition_ids"]),
             training_nuclide_ids=tuple(data["training_nuclide_ids"]),
             training_identity_digest=data["training_identity_digest"],
+            target_nuclide_ids=tuple(data.get("target_nuclide_ids", ())),
+            target_identity_digest=data.get("target_identity_digest", ""),
             forbidden_source_hashes=tuple(data.get("forbidden_source_hashes", ())),
             feature_policy_id=data["feature_policy_id"],
             atlas_pir_ref=data["atlas_pir_ref"],
@@ -82,6 +88,11 @@ class KnowledgeFreeze:
 def identity_digest(nuclide_ids: Iterable[str]) -> str:
     ordered = sorted(set(nuclide_ids))
     return sha256_hex({"training_nuclide_ids": ordered})
+
+
+def target_digest(nuclide_ids: Iterable[str]) -> str:
+    ordered = sorted(set(nuclide_ids))
+    return sha256_hex({"target_nuclide_ids": ordered})
 
 
 def feature_policy_payload(policy_id: str) -> dict[str, Any]:
@@ -136,11 +147,12 @@ def build_freeze(
     atlas_ref: str | None = None,
     ez_commit: str | None = None,
 ) -> KnowledgeFreeze:
-    target_ids = {validate_target_record(t)["nuclide_id"] for t in targets}
-    held_out = [obs for obs in training if obs.nuclide_id not in target_ids]
+    target_ids = tuple(sorted({validate_target_record(t)["nuclide_id"] for t in targets}))
+    held_out = [obs for obs in training if obs.nuclide_id not in set(target_ids)]
     training = held_out
     training_ids = tuple(sorted({obs.nuclide_id for obs in training}))
     digest = identity_digest(training_ids)
+    holdout_digest = target_digest(target_ids)
     table_hash = sha256_hex([obs.to_dict() for obs in sorted(training, key=lambda o: o.nuclide_id)])
     policy = feature_policy_payload(feature_policy_id)
     policy_hash = sha256_hex(policy)
@@ -148,6 +160,7 @@ def build_freeze(
         "cutoff_date": cutoff_date,
         "allowed_source_hashes": [raw_source_hash],
         "training_identity_digest": digest,
+        "target_identity_digest": holdout_digest,
         "normalized_table_hash": table_hash,
         "feature_policy_hash": policy_hash,
         "atlas_pir_ref": atlas_ref or atlas_pir_ref(),
@@ -161,6 +174,8 @@ def build_freeze(
         allowed_edition_ids=(edition_id,),
         training_nuclide_ids=training_ids,
         training_identity_digest=digest,
+        target_nuclide_ids=target_ids,
+        target_identity_digest=holdout_digest,
         forbidden_source_hashes=tuple(forbidden_source_hashes),
         feature_policy_id=feature_policy_id,
         atlas_pir_ref=payload["atlas_pir_ref"],
@@ -181,3 +196,19 @@ def assert_holdout_disjoint(freeze: KnowledgeFreeze, target_ids: Iterable[str]) 
     overlap = sorted(set(freeze.training_nuclide_ids) & set(target_ids))
     if overlap:
         raise LeakageError(f"held-out nuclide in training IDs: {overlap}")
+
+
+def assert_targets_match_freeze(freeze: KnowledgeFreeze, target_ids: Iterable[str]) -> None:
+    ordered = tuple(sorted(set(target_ids)))
+    if freeze.target_nuclide_ids and ordered != tuple(freeze.target_nuclide_ids):
+        raise LeakageError("prediction targets do not match the freeze holdout")
+    if freeze.target_identity_digest and target_digest(ordered) != freeze.target_identity_digest:
+        raise LeakageError("prediction target digest does not match the freeze")
+
+
+def assert_edition_allowed(freeze: KnowledgeFreeze, edition_id: str) -> None:
+    if edition_id not in freeze.allowed_edition_ids:
+        raise LeakageError(
+            f"training edition {edition_id!r} is not in freeze.allowed_edition_ids "
+            f"{list(freeze.allowed_edition_ids)}"
+        )

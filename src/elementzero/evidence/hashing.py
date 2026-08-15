@@ -29,7 +29,8 @@ def canonicalize(obj: Any) -> Any:
     if isinstance(obj, float):
         if obj != obj or obj in (float("inf"), float("-inf")):
             raise ValueError("non-finite float is not canonically serializable")
-        return format(obj, FLOAT_FORMAT)
+        # Quantize to 12 significant digits, then keep a JSON number (not a string).
+        return float(format(obj, FLOAT_FORMAT))
     if isinstance(obj, str):
         return obj
     if isinstance(obj, dict):

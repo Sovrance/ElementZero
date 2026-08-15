@@ -19,7 +19,8 @@ python -m pip install -e '.[dev]'
 `tools/ensure_atlas_pir.py` clones the immutable SHA in `atlas.lock.json`.
 Atlas at the reviewed baseline is not yet an installable package; the tool
 writes the recommended `sovrance-atlas-pir` packaging overlay into the clone
-only. Do not copy `pir/` into this repository. Do not depend on Atlas `main`.
+only. Required `pip install -e '.[dev]'` dependencies do not fetch that raw
+git SHA. Do not copy `pir/` into this repository. Do not depend on Atlas `main`.
 
 ## EZ-B001
 

@@ -247,6 +247,37 @@ class AtlasEvidenceAdapter:
         )
         return fact
 
+    def model_fit_fact(
+        self,
+        *,
+        model_id: str,
+        freeze_id: str,
+        fitted_nuclide_ids: Sequence[str],
+        depends_on_facts: Sequence[str],
+    ) -> Fact:
+        analyzer = _sound_analyzer()
+        content = {
+            "kind": "nuclear_mass_model_fit",
+            "model_id": model_id,
+            "freeze_id": freeze_id,
+            "fitted_nuclide_ids": list(fitted_nuclide_ids),
+        }
+        return Fact(
+            fact_id=Fact.compute_id(content, analyzer, depends_on_facts=depends_on_facts),
+            pir_level=PirLevel.L2,
+            evidence_level=EvidenceLevel.E2,
+            layer=Layer.DOMAIN,
+            namespace=Namespace.analyst,
+            status=FactStatus.SUPPORTED,
+            analyzer=analyzer,
+            content=content,
+            created_at=self.created_at,
+            depends_on_facts=tuple(depends_on_facts),
+            assumptions=(f"freeze:{freeze_id}", f"model:{model_id}"),
+            source_spans=({"artifact_id": freeze_id, "span": f"fit:{model_id}"},),
+            measurement_interface=(NUCLEAR_MASS_INTERFACE,),
+        )
+
     def validation_fact(
         self,
         *,
