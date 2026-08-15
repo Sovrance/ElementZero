@@ -12,7 +12,7 @@ for p in ROOT.rglob('*.json'):
     except Exception as e: fail(f'JSON parse {p.relative_to(ROOT)}: {e}')
 
 # 2. Markdown fences are balanced.
-for p in list((ROOT/'docs').glob('*.md'))+list((ROOT/'agents').glob('*.md'))+[ROOT/'README.md']:
+for p in list((ROOT/'docs').rglob('*.md'))+list((ROOT/'agents').glob('*.md'))+[ROOT/'README.md']:
     text=p.read_text(encoding='utf-8')
     if text.count('```') % 2: fail(f'unbalanced code fences: {p.relative_to(ROOT)}')
 
@@ -25,10 +25,18 @@ for rel in ['README.md','docs/legacy/01_ZME_V0.2_ENGINEERING_SPEC.md','docs/lega
         try: b.encode('ascii')
         except UnicodeEncodeError as e: fail(f'non-ASCII normative block in {rel}: {e}')
 
-# 4. Task instruction paths exist.
+# 4. Task instruction paths and bundle manifest files exist.
 man=json.loads((ROOT/'agents/task_manifest.json').read_text())
 for t in man['tasks']:
     if not (ROOT/t['instruction_file']).exists(): fail(f"missing task file {t['instruction_file']}")
+bundle=json.loads((ROOT/'manifest.json').read_text())
+for rel in bundle['files']:
+    if not (ROOT/rel).exists(): fail(f'missing bundle file {rel}')
+for line in (ROOT/'SHA256SUMS.txt').read_text(encoding='utf-8').splitlines():
+    if not line.strip():
+        continue
+    rel=line.split(maxsplit=1)[1]
+    if not (ROOT/rel).exists(): fail(f'missing checksum path {rel}')
 
 # 5. Run scaffold tests using source trees directly.
 env=dict(os.environ)

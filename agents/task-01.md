@@ -33,7 +33,7 @@ python ci/run_all_certified.py --build-dir build/pre-pec-baseline
 python -m pytest -q
 ```
 
-7. Confirm the failure is the B4 imported `test_event` collection problem described in `docs/04_GLOBAL_VARIABLES_MIGRATION_AND_PATCH.md`. If the failure differs, stop and investigate snapshot drift.
+7. Confirm the failure is the B4 imported `test_event` collection problem described in `docs/legacy/04_GLOBAL_VARIABLES_MIGRATION_AND_PATCH.md`. If the failure differs, stop and investigate snapshot drift.
 8. Hash all committed `certificates/*.json` and `b13_cdl/certificates/*.json`.
 9. Create `migration/baseline_manifest.json` containing all hashes and environment information.
 
