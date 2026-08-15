@@ -38,3 +38,9 @@ Atlas owns generic scientific evidence infrastructure.
 ElementZero consumes Atlas through a pinned dependency and a thin adapter.
 ElementZero MUST NOT copy, fork, or silently modify Atlas PIR source.
 ```
+
+## Research baseline and legacy handoff
+
+- Canonical research basis: `docs/research/ElementZero_Initial_Research_Baseline_v0.1.md` (preserve; version successors separately).
+- Agent handoff docs / task graph: start at `docs/00_EXECUTIVE_HANDOFF.md` and `agents/task_manifest.json`.
+- Legacy ZME/PEC scaffolds under `scaffold/` remain for historical validation (`python scripts/validate_bundle.py`). Prefer the installable `elementzero` package and Atlas pin above for new work.

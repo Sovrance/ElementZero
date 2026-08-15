@@ -1,0 +1,17 @@
+{
+  "generated_for": "ZME v0.2 + PEC v0.1",
+  "inputs": [
+    {
+      "bytes": 33297205,
+      "filename": "Global-variables-main (2).zip",
+      "label": "Global Variables uploaded source",
+      "sha256": "071c99512907d9fe6355c51e05cba3b831d575f304a10e670c5d51d1c62c89cf"
+    },
+    {
+      "bytes": 84530,
+      "filename": "Zero-Mass_Element_v0.1_Canonical_Package.zip",
+      "label": "Zero-Mass Element v0.1 baseline",
+      "sha256": "31af81ad4f4f601de1da885277db069186f68b37050efc0c76a9487911bb1d55"
+    }
+  ]
+}

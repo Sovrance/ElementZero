@@ -1,0 +1,48 @@
+{
+  "$id": "zme:split_manifest:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cutoff_edition": {
+      "type": "string"
+    },
+    "split_id": {
+      "type": "string"
+    },
+    "target_nuclide_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "track": {
+      "enum": [
+        "DISCOVERY_HOLDOUT",
+        "REVISION_HOLDOUT"
+      ]
+    },
+    "training_ids_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "training_nuclide_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "truth_edition": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "split_id",
+    "track",
+    "cutoff_edition",
+    "truth_edition",
+    "training_nuclide_ids",
+    "target_nuclide_ids",
+    "training_ids_sha256"
+  ],
+  "type": "object"
+}

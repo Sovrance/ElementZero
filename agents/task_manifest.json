@@ -1,0 +1,119 @@
+{
+  "project": "Zero-Mass Element v0.2 + Physics Evidence Core v0.1",
+  "schema_version": "1.0",
+  "tasks": [
+    {
+      "depends_on": [],
+      "goal": "Hash the supplied repositories/artifacts, run the existing Global Variables certified suite, record environment and certificate manifest before any modification.",
+      "id": "T01",
+      "instruction_file": "agents/task-01.md",
+      "status": "TODO",
+      "title": "Baseline and provenance freeze"
+    },
+    {
+      "depends_on": [
+        "T01"
+      ],
+      "goal": "Apply the tested packaging/pytest patch as an isolated commit. Require both standard pytest and the certified runner to pass.",
+      "id": "T02",
+      "instruction_file": "agents/task-02.md",
+      "status": "TODO",
+      "title": "Global Variables packaging baseline"
+    },
+    {
+      "depends_on": [
+        "T02"
+      ],
+      "goal": "Create the independent PEC package from canonical/types/models/namespaces/provenance/passes/runtime with identity compatibility tests.",
+      "id": "T03",
+      "instruction_file": "agents/task-03.md",
+      "status": "TODO",
+      "title": "Extract PEC core"
+    },
+    {
+      "depends_on": [
+        "T03"
+      ],
+      "goal": "Move generic canonical certificate hashing and degradation comparison into PEC without moving Global Variables suite discovery.",
+      "id": "T04",
+      "instruction_file": "agents/task-04.md",
+      "status": "TODO",
+      "title": "Extract certificate services"
+    },
+    {
+      "depends_on": [
+        "T04"
+      ],
+      "goal": "Implement domain-neutral KnowledgeFreeze, prediction ledger state, and held-out comparison. Add negative leakage tests.",
+      "id": "T05",
+      "instruction_file": "agents/task-05.md",
+      "status": "TODO",
+      "title": "Generalize forward validation"
+    },
+    {
+      "depends_on": [
+        "T05"
+      ],
+      "goal": "Port deterministic intervention scoring and tests. Keep discrete outcomes in v0.1 and document continuous-UQ extension.",
+      "id": "T06",
+      "instruction_file": "agents/task-06.md",
+      "status": "TODO",
+      "title": "Extract intervention search"
+    },
+    {
+      "depends_on": [
+        "T06"
+      ],
+      "goal": "Introduce compatibility facades and migrate imports incrementally while preserving all certified outputs.",
+      "id": "T07",
+      "instruction_file": "agents/task-07.md",
+      "status": "TODO",
+      "title": "Migrate Global Variables to PEC"
+    },
+    {
+      "depends_on": [
+        "T03",
+        "T04",
+        "T05",
+        "T06"
+      ],
+      "goal": "Create nuclear-specific package, normalized observation schema, feature policy, model protocol, CLI and PEC dependency.",
+      "id": "T08",
+      "instruction_file": "agents/task-08.md",
+      "status": "TODO",
+      "title": "Create Zero-Mass v0.2 package"
+    },
+    {
+      "depends_on": [
+        "T08"
+      ],
+      "goal": "Implement chronological discovery holdout, refit SEMF, residual GP, prediction certificates, scoring, calibration and synthetic smoke benchmark.",
+      "id": "T09",
+      "instruction_file": "agents/task-09.md",
+      "status": "TODO",
+      "title": "Implement ZME-B001"
+    },
+    {
+      "depends_on": [
+        "T09"
+      ],
+      "goal": "Acquire official AME2003/2012/2016/2020 files, hash raw files, implement versioned status parsers/normalizers and run real historical checkpoints.",
+      "id": "T10",
+      "instruction_file": "agents/task-10.md",
+      "status": "TODO",
+      "title": "Ingest official AME history"
+    },
+    {
+      "depends_on": [
+        "T02",
+        "T07",
+        "T10"
+      ],
+      "goal": "Run all tests, deterministic reruns, schema validation, document validator, and produce v0.2 scientific readiness report.",
+      "id": "T11",
+      "instruction_file": "agents/task-11.md",
+      "status": "TODO",
+      "title": "Release and readability audit"
+    }
+  ]
+}
