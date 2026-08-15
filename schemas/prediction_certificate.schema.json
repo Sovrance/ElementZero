@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elementzero.sovrance/schemas/prediction_certificate.schema.json",
+  "title": "ElementZero prediction certificate",
+  "type": "object",
+  "required": [
+    "certificate_id",
+    "benchmark_id",
+    "nuclide_id",
+    "observable",
+    "prediction",
+    "intervals",
+    "uncertainty_scope",
+    "model_id",
+    "model_manifest_hash",
+    "freeze_id",
+    "training_identity_digest",
+    "feature_policy_id",
+    "atlas_pir_ref",
+    "elementzero_commit",
+    "source_hashes",
+    "created_at",
+    "ledger_state"
+  ],
+  "properties": {
+    "certificate_id": { "type": "string" },
+    "benchmark_id": { "type": "string", "const": "EZ-B001" },
+    "legacy_id": { "type": "string", "const": "ZME-B001" },
+    "nuclide_id": { "type": "string" },
+    "observable": { "type": "string", "const": "mi:nuclear_atomic_mass_excess" },
+    "prediction": {
+      "type": "object",
+      "required": ["mass_excess_keV"],
+      "properties": { "mass_excess_keV": { "type": "number" } }
+    },
+    "intervals": { "type": "object" },
+    "uncertainty_scope": { "type": "string" },
+    "model_id": { "type": "string" },
+    "model_manifest_hash": { "type": "string" },
+    "freeze_id": { "type": "string" },
+    "training_identity_digest": { "type": "string" },
+    "feature_policy_id": { "type": "string" },
+    "atlas_pir_ref": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "elementzero_commit": { "type": "string" },
+    "source_hashes": { "type": "array", "items": { "type": "string" } },
+    "created_at": { "type": "string" },
+    "ledger_state": { "type": "string" },
+    "atlas_fact_id": { "type": ["string", "null"] }
+  }
+}

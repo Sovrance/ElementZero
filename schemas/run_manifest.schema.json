@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elementzero.sovrance/schemas/run_manifest.schema.json",
+  "title": "ElementZero scientific run manifest",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "stage",
+    "atlas_pir_ref",
+    "elementzero_commit",
+    "source_hashes",
+    "normalizer_version",
+    "feature_policy_id",
+    "model_id"
+  ],
+  "properties": {
+    "benchmark_id": { "type": "string", "const": "EZ-B001" },
+    "legacy_id": { "type": "string", "const": "ZME-B001" },
+    "stage": { "type": "string" },
+    "run_id": { "type": "string" },
+    "freeze_id": { "type": "string" },
+    "model_id": { "type": "string" },
+    "model_manifest_hash": { "type": "string" },
+    "target_ids": { "type": "array", "items": { "type": "string" } },
+    "observable": { "type": "string" },
+    "library_versions": { "type": "object" },
+    "random_seeds": { "type": "object" },
+    "source_hashes": { "type": "array", "items": { "type": "string" } },
+    "normalizer_version": { "type": "string" },
+    "feature_policy_id": { "type": "string" },
+    "prediction_fact_ids": { "type": "array", "items": { "type": "string" } },
+    "atlas_repository": { "type": "string" },
+    "atlas_pir_ref": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "elementzero_commit": { "type": "string" }
+  }
+}

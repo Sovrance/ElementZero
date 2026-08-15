@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elementzero.sovrance/schemas/nuclear_observation.schema.json",
+  "title": "ElementZero nuclear mass observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nuclide_id",
+    "Z",
+    "N",
+    "A",
+    "mass_excess_keV",
+    "uncertainty_keV",
+    "source_edition",
+    "source_release_date",
+    "source_record_status",
+    "ground_truth_eligible",
+    "raw_source_hash",
+    "normalizer_version"
+  ],
+  "properties": {
+    "nuclide_id": { "type": "string", "pattern": "^Z[0-9]+-N[0-9]+$" },
+    "Z": { "type": "integer", "minimum": 0 },
+    "N": { "type": "integer", "minimum": 0 },
+    "A": { "type": "integer", "minimum": 0 },
+    "mass_excess_keV": { "type": "number" },
+    "uncertainty_keV": { "type": "number", "minimum": 0 },
+    "source_edition": { "type": "string" },
+    "source_release_date": { "type": "string" },
+    "source_record_status": {
+      "type": "string",
+      "enum": ["experimental", "evaluated", "extrapolated", "estimated"]
+    },
+    "ground_truth_eligible": { "type": "boolean" },
+    "raw_source_hash": { "type": "string", "minLength": 64, "maxLength": 64 },
+    "normalizer_version": { "type": "string" },
+    "element_symbol": { "type": ["string", "null"] }
+  }
+}
