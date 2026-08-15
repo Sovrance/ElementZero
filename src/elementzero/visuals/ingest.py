@@ -35,6 +35,8 @@ SKIP_DIR_NAMES = {
     "scaffold",
     "reference",
 }
+# Never treat committed software-smoke trees as published visual inputs.
+SKIP_ROOT_PREFIXES = ("tests", "docs", "scaffold", "reference")
 UNSPECIFIED_TIME = "1970-01-01T00:00:00Z"
 PROJECT_SUITE_Z = 1
 
@@ -49,10 +51,17 @@ def _read_json(path: Path) -> Any:
 
 
 def _iter_files(root: Path) -> Iterable[Path]:
+    root = root.resolve()
     for path in root.rglob("*"):
         if not path.is_file():
             continue
-        if any(part in SKIP_DIR_NAMES for part in path.parts):
+        try:
+            relative = path.resolve().relative_to(root)
+        except ValueError:
+            continue
+        if relative.parts and relative.parts[0] in SKIP_ROOT_PREFIXES:
+            continue
+        if any(part in SKIP_DIR_NAMES for part in relative.parts):
             continue
         yield path
 
@@ -529,11 +538,9 @@ def extract_events(input_root: str | Path) -> tuple[list[ProgressEvent], dict[st
 
     preferred_pytest = [
         root / ".artifacts" / "tests" / "pytest-report.json",
-        root / "tests" / "fixtures" / "visuals" / "pytest-report.json",
     ]
     preferred_junit = [
         root / ".artifacts" / "tests" / "junit.xml",
-        root / "tests" / "fixtures" / "visuals" / "junit.xml",
     ]
 
     report_consumed = False
@@ -633,6 +640,9 @@ def extract_events(input_root: str | Path) -> tuple[list[ProgressEvent], dict[st
             input_hashes[rel] = sha256_file(path)
             continue
         if name == "predictions.json":
+            if (path.parent / "certificates.json").is_file():
+                # predict_run writes both files for the same nuclides; certificates are canonical.
+                continue
             sealed = (path.parent / "LEDGER_FINALIZED").exists() or (path.parent / "LEDGER_FINALIZED.json").exists()
             pred_events = extract_predictions(path, root=root, sealed=sealed)
             if pred_events:

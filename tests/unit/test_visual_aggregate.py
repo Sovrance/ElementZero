@@ -3,16 +3,23 @@ import shutil
 from elementzero.atlas_pin import REPO_ROOT
 from elementzero.errors import VisualError
 from elementzero.visuals.aggregate import aggregate_events, validate_state
+from elementzero.visuals.build import aggregate_from_events_file
 from elementzero.visuals.event_types import ProgressEvent, make_event_id
-from elementzero.visuals.ingest import extract_events
+from elementzero.visuals.ingest import extract_events, write_events_jsonl
 from elementzero.visuals.status import select_primary_stage
 
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "visuals"
 
 
-def _event(event_type: str, z: int, nuclide_id: str | None = None) -> ProgressEvent:
+def _event(event_type: str, z: int, nuclide_id: str | None = None, payload: dict | None = None) -> ProgressEvent:
     return ProgressEvent(
-        event_id=make_event_id(event_type=event_type, source_hash="abc", element_Z=z, nuclide_id=nuclide_id),
+        event_id=make_event_id(
+            event_type=event_type,
+            source_hash="abc",
+            element_Z=z,
+            nuclide_id=nuclide_id,
+            extra=str((payload or {}).get("suite") or ""),
+        ),
         event_type=event_type,
         event_time="1970-01-01T00:00:00Z",
         project_version="0.2.0",
@@ -22,7 +29,7 @@ def _event(event_type: str, z: int, nuclide_id: str | None = None) -> ProgressEv
         element_Z=z,
         status="ok",
         nuclide_id=nuclide_id,
-        payload={},
+        payload=payload or {},
     )
 
 
@@ -82,6 +89,24 @@ def test_candidate_island_requires_explicit_event():
     row = next(item for item in marked["elements"] if item["Z"] == 120)
     assert row["project_primary_stage"] == "candidate_island_focus"
     assert "I" in row["badges"]
+
+
+def test_aggregate_reconstructs_suite_health(tmp_path):
+    events = [
+        _event("TEST_SUITE_PASS", 1, payload={"suite": "unit"}),
+        _event("TEST_SUITE_PASS", 1, payload={"suite": "integration"}),
+        _event("TEST_SUITE_FAIL", 1, payload={"suite": "leakage"}),
+        _event("DATA_INGESTED", 8, "Z8-N8"),
+    ]
+    events_path = write_events_jsonl(events, tmp_path / "events.jsonl")
+    dest = aggregate_from_events_file(events_path, output=tmp_path / "state.json")
+    state = aggregate_events(events)
+    assert state["test_health"]["unit"] == "pass"
+    assert state["test_health"]["integration"] == "pass"
+    assert state["test_health"]["leakage"] == "fail"
+    assert state["test_health"]["overall"] == "fail"
+    assert dest.is_file()
+    assert "fixture" in state["input_hashes"]
 
 
 def test_visual_bundle_schema_validates():

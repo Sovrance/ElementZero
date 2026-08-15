@@ -1,3 +1,4 @@
+import json
 import shutil
 from pathlib import Path
 
@@ -74,6 +75,34 @@ def test_malformed_benchmark_json_fails(tmp_path):
     (tmp_path / "score_report.json").write_text("{not-json", encoding="utf-8")
     with pytest.raises(VisualError, match="malformed JSON"):
         extract_events(tmp_path)
+
+
+def test_repo_root_skips_committed_fixtures():
+    events, _health, hashes = extract_events(REPO_ROOT)
+    assert all(not path.startswith("tests/") for path in hashes)
+    assert all(not event.source_path.startswith("tests/") for event in events)
+    assert all(event.event_type != "CANDIDATE_ISLAND_MARKED" for event in events)
+
+
+def test_paired_prediction_artifacts_are_not_double_counted(tmp_path):
+    run = tmp_path / "prediction"
+    run.mkdir()
+    payload = [
+        {
+            "nuclide_id": "Z120-N184",
+            "Z": 120,
+            "N": 184,
+            "A": 304,
+            "model_id": "semf_gp",
+            "frontier_mode": True,
+            "benchmark_id": "EZ-B001",
+        }
+    ]
+    (run / "certificates.json").write_text(json.dumps(payload), encoding="utf-8")
+    (run / "predictions.json").write_text(json.dumps(payload), encoding="utf-8")
+    events, _health, _hashes = extract_events(tmp_path)
+    frontier = [event for event in events if event.event_type == "FRONTIER_PREDICTION_CREATED"]
+    assert len(frontier) == 1
 
 
 def test_candidate_island_not_inferred_from_frontier(tmp_path):

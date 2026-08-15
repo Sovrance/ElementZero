@@ -22,8 +22,10 @@ from elementzero.visuals.palette import (
 TILE = 36
 GAP = 4
 LEFT = 16
-TOP = 72
-LEGEND_Y = 16
+TOP = 64
+LEGEND_ITEM_WIDTH = 240
+LEGEND_ITEM_HEIGHT = 16
+LEGEND_COLUMNS = 3
 
 
 def _escape(value: Any) -> str:
@@ -51,8 +53,13 @@ def render_svg(state: dict[str, Any]) -> str:
         metadata_for(element["Z"])
     max_row = max(item["row"] for item in state["elements"])
     max_col = max(item["column"] for item in state["elements"])
-    width = LEFT * 2 + max_col * (TILE + GAP)
-    height = TOP + max_row * (TILE + GAP) + 96
+    table_width = LEFT * 2 + max_col * (TILE + GAP)
+    table_height = max_row * (TILE + GAP)
+    legend_rows = (len(STAGE_LABELS) + LEGEND_COLUMNS - 1) // LEGEND_COLUMNS
+    legend_width = LEFT * 2 + LEGEND_COLUMNS * LEGEND_ITEM_WIDTH
+    width = max(table_width, legend_width)
+    legend_top = TOP + table_height + 16
+    height = legend_top + legend_rows * LEGEND_ITEM_HEIGHT + 56
     health = state["test_health"]
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
@@ -64,18 +71,20 @@ def render_svg(state: dict[str, Any]) -> str:
         f"Unit {health_label(health['unit'])} | Integration {health_label(health['integration'])} | "
         f"Leakage {health_label(health['leakage'])} | Overall {health_label(health['overall'])}</text>",
     ]
-    legend_x = LEFT
-    for stage, label in STAGE_LABELS.items():
+    for index, (stage, label) in enumerate(STAGE_LABELS.items()):
+        col = index % LEGEND_COLUMNS
+        row = index // LEGEND_COLUMNS
+        legend_x = LEFT + col * LEGEND_ITEM_WIDTH
+        legend_y = legend_top + row * LEGEND_ITEM_HEIGHT
         fill = STAGE_FILL[stage]
         parts.append(
-            f'<rect class="legend-swatch stage-{_escape(stage)}" x="{legend_x}" y="{LEGEND_Y + 36}" '
+            f'<rect class="legend-swatch stage-{_escape(stage)}" x="{legend_x}" y="{legend_y}" '
             f'width="10" height="10" fill="{fill}" stroke="{DEFAULT_STROKE}"/>'
         )
         parts.append(
-            f'<text x="{legend_x + 14}" y="{LEGEND_Y + 45}" fill="{TEXT_FILL}" '
+            f'<text x="{legend_x + 14}" y="{legend_y + 9}" fill="{TEXT_FILL}" '
             f'font-family="sans-serif" font-size="9">{_escape(label)}</text>'
         )
-        legend_x += 118
 
     for element in sorted(state["elements"], key=lambda item: item["Z"]):
         x = LEFT + (element["column"] - 1) * (TILE + GAP)

@@ -41,8 +41,21 @@ COUNT_EVENTS = {
     "FRONTIER_PREDICTION_CREATED": "frontier_prediction_count",
 }
 
+# certificates.json and predictions.json can describe the same sealed/frontier row.
+PAIRED_PREDICTION_TYPES = frozenset(
+    {"FRONTIER_PREDICTION_CREATED", "HISTORICAL_PREDICTION_SEALED"}
+)
+
 
 def _dedupe_key(event: ProgressEvent) -> tuple[Any, ...]:
+    if event.event_type in PAIRED_PREDICTION_TYPES:
+        return (
+            event.event_type,
+            event.element_Z,
+            event.nuclide_id or "",
+            event.benchmark_id or "",
+            event.model_id or "",
+        )
     return (
         event.event_type,
         event.source_hash,
@@ -53,6 +66,45 @@ def _dedupe_key(event: ProgressEvent) -> tuple[Any, ...]:
     )
 
 
+def health_from_events(events: list[ProgressEvent]) -> dict[str, str]:
+    health = {
+        "overall": "unknown",
+        "unit": "unknown",
+        "integration": "unknown",
+        "leakage": "unknown",
+        "benchmark": "unknown",
+    }
+    for event in events:
+        if event.event_type in SUITE_EVENT_TYPES:
+            suite = str((event.payload or {}).get("suite") or "overall")
+            status = "pass" if event.event_type == "TEST_SUITE_PASS" else "fail"
+            if suite in health and health[suite] != "fail":
+                health[suite] = status
+        if event.event_type.endswith("_SCORED"):
+            health["benchmark"] = "pass"
+    suites = (health["unit"], health["integration"], health["leakage"])
+    if health["overall"] == "unknown":
+        if "fail" in suites:
+            health["overall"] = "fail"
+        elif any(value == "pass" for value in suites):
+            health["overall"] = "pass"
+    return health
+
+
+def _merge_health(explicit: dict[str, str] | None, derived: dict[str, str]) -> dict[str, str]:
+    merged = dict(derived)
+    if not explicit:
+        return merged
+    for key, value in explicit.items():
+        if key in merged and value and value != "unknown":
+            merged[key] = value
+    return merged
+
+
+def _hashes_from_events(events: list[ProgressEvent]) -> dict[str, str]:
+    return {event.source_path: event.source_hash for event in events if event.source_path}
+
+
 def aggregate_events(
     events: list[ProgressEvent],
     *,
@@ -61,15 +113,10 @@ def aggregate_events(
     input_hashes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     load_element_metadata()
-    health = {
-        "overall": "unknown",
-        "unit": "unknown",
-        "integration": "unknown",
-        "leakage": "unknown",
-        "benchmark": "unknown",
-    }
-    if test_health:
-        health.update({key: test_health[key] for key in health if key in test_health})
+    health = _merge_health(test_health, health_from_events(events))
+    hashes = _hashes_from_events(events)
+    if input_hashes:
+        hashes.update(input_hashes)
 
     by_z: dict[int, list[ProgressEvent]] = defaultdict(list)
     seen: set[tuple[Any, ...]] = set()
@@ -128,7 +175,7 @@ def aggregate_events(
         "project": "ElementZero",
         "generated_at": "derived-from-artifacts",
         "layout_profile": layout_profile,
-        "input_hashes": dict(sorted((input_hashes or {}).items())),
+        "input_hashes": dict(sorted(hashes.items())),
         "test_health": health,
         "legend": {
             "stages": dict(STAGE_LABELS),

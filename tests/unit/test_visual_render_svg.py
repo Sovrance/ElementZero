@@ -1,3 +1,5 @@
+import re
+
 from elementzero.visuals.aggregate import aggregate_events
 from elementzero.visuals.event_types import ProgressEvent, make_event_id
 from elementzero.visuals.render_html import render_html
@@ -29,6 +31,22 @@ def test_svg_render_deterministic():
     assert 'class="tile stage-historically_validated' in first
     assert 'fill="#3d8b5a"' in first
     assert "not official IUPAC placement" in first
+
+
+def test_svg_legend_fits_viewbox():
+    state = aggregate_events([_event("DATA_INGESTED", 8)])
+    svg = render_svg(state)
+    match = re.search(r'viewBox="0 0 ([0-9.]+) ([0-9.]+)"', svg)
+    assert match
+    width = float(match.group(1))
+    height = float(match.group(2))
+    for swatch in re.finditer(r'class="legend-swatch[^"]*" x="([0-9.]+)" y="([0-9.]+)"', svg):
+        x = float(swatch.group(1))
+        y = float(swatch.group(2))
+        assert 0 <= x < width
+        assert 0 <= y < height
+    assert svg.count('class="legend-swatch') == 9
+    assert "Candidate island focus" in svg
 
 
 def test_html_render_contains_legend():
