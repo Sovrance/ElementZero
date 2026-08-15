@@ -33,6 +33,7 @@ experiment so one directory is one auditable unit):
 from __future__ import annotations
 
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -106,6 +107,19 @@ VERIFICATION_COMMANDS: tuple[tuple[str, ...], ...] = (
 # --------------------------------------------------------------------------- #
 
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _plain_text(text: str) -> str:
+    """Committed evidence stays terminal-agnostic: drop ANSI colour codes."""
+    return _ANSI_RE.sub("", text).strip()
+
+
+def _tail(result: subprocess.CompletedProcess[str], lines: int = 1) -> list[str]:
+    stream = (result.stdout or result.stderr or "").strip().splitlines()
+    return stream[-lines:] if stream else [""]
+
+
 def environment_report(
     *,
     experiment_dir: str | Path,
@@ -129,7 +143,7 @@ def environment_report(
                 "command": " ".join(command),
                 "status": "pass" if result.returncode == 0 else "fail",
                 "returncode": result.returncode,
-                "tail": (result.stdout or result.stderr).strip().splitlines()[-1:] or [""],
+                "tail": [_plain_text(line) for line in _tail(result)],
             }
         )
         if result.returncode != 0:
