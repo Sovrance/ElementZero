@@ -47,7 +47,10 @@ def pyproject_atlas_ref() -> str:
     tool_ref = data.get("tool", {}).get("elementzero", {}).get("atlas", {}).get("ref")
     if tool_ref:
         validate_atlas_ref(tool_ref)
-    deps = data.get("project", {}).get("dependencies", [])
+    extras = data.get("project", {}).get("optional-dependencies", {})
+    deps = list(data.get("project", {}).get("dependencies", []))
+    for extra_deps in extras.values():
+        deps.extend(extra_deps)
     git_refs = []
     for dep in deps:
         if "github.com/Sovrance/Atlas.git@" in dep:

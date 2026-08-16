@@ -21,3 +21,7 @@ class SchemaError(ElementZeroError):
 
 class AtlasContractError(ElementZeroError):
     """Raised when the Atlas PIR pin or public surface is not usable."""
+
+
+class VisualError(ElementZeroError):
+    """Raised when visual-table extraction, aggregation, or render fails."""

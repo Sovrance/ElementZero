@@ -1,0 +1,6 @@
+{
+  "benchmark_id": "EZ-B002-demo",
+  "rows": [
+    {"nuclide_id": "Z26-N30", "Z": 26, "abs_error_keV": 12.5, "interval_hit_90": true}
+  ]
+}

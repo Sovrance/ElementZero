@@ -11,8 +11,6 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Sovrance AI" }]
 dependencies = [
-  # Pin is the 40-character SHA in atlas.lock.json. Do not change this to main.
-  "sovrance-atlas-pir @ git+https://github.com/Sovrance/Atlas.git@31d76d094f1206e64a6920da4775d0a684618357",
   "numpy>=1.26",
   "scipy>=1.12",
   "scikit-learn>=1.4",
@@ -23,6 +21,11 @@ dev = [
   "pytest>=8.0",
   "ruff>=0.6",
 ]
+# Enable only after Atlas publishes installable packaging at the locked SHA.
+# Until then: python tools/ensure_atlas_pir.py && pip install -e '.[dev]'
+atlas = [
+  "sovrance-atlas-pir @ git+https://github.com/Sovrance/Atlas.git@31d76d094f1206e64a6920da4775d0a684618357",
+]
 
 [project.scripts]
 elementzero = "elementzero.cli:main"
@@ -32,7 +35,7 @@ where = ["src"]
 include = ["elementzero", "elementzero.*"]
 
 [tool.setuptools.package-data]
-elementzero = ["py.typed"]
+elementzero = ["py.typed", "visuals/layouts/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

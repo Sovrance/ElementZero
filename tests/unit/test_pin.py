@@ -24,3 +24,6 @@ def test_lock_file_is_sha():
     text = Path(REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert "@main" not in text
     assert "31d76d094f1206e64a6920da4775d0a684618357" in text
+    # Required install must not resolve the raw, unpackaged Atlas VCS URL.
+    required = text.split("[project.optional-dependencies]", 1)[0]
+    assert "sovrance-atlas-pir @ git+" not in required

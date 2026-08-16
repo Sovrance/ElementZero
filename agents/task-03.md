@@ -6,7 +6,7 @@ Create `physics-evidence-core` v0.1 as an independent package containing only do
 
 ## Source-to-target map
 
-Follow `docs/03_GLOBAL_VARIABLES_EXTRACTION_MAP.md` exactly.
+Follow `docs/legacy/03_GLOBAL_VARIABLES_EXTRACTION_MAP.md` exactly.
 
 First-pass source modules:
 
