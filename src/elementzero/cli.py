@@ -380,7 +380,110 @@ def build_parser() -> argparse.ArgumentParser:
         help="build the historical benchmark report over every scored epoch (no refit)",
     )
     historical.add_argument("--out", default=None, help=f"defaults to {REPORT_DIRNAME}")
+
+    adjudicate = sub.add_parser(
+        "adjudicate", help="WO-11 evidence adjudication over the frozen v1 benchmarks"
+    )
+    asub = adjudicate.add_subparsers(dest="adjudicate_command", required=True)
+    wo11 = asub.add_parser(
+        "wo11",
+        help="full WO-11 pipeline: inventory, replay, diagnostics, controls, "
+        "ablations, taxonomy, readiness, report",
+    )
+    wo11.add_argument("--b002", default=None, help="EZ-B002-v1 experiment dir (informational)")
+    wo11.add_argument("--b003", default=None, help="EZ-B003-v1 experiment dir (informational)")
+    wo11.add_argument("--output", default=None, help="defaults to reports/adjudication/wo11")
+    wo11.add_argument("--workspace", default=None, help="scratch dir (default: temp dir)")
+    asub.add_parser("audit", help="WO-11.1 frozen evidence inventory only")
+    asub.add_parser("replay", help="WO-11.2 sealed replay only (no refitting)")
+    asub.add_parser("diagnose", help="WO-11.4-11.6 diagnostics from sealed predictions")
+    asub.add_parser("controls", help="WO-11.7 benchmark oracle controls")
+    asub.add_parser("readiness", help="print the committed WO-11 readiness verdict")
     return parser
+
+
+def _adjudicate(args: argparse.Namespace) -> int:
+    import tempfile
+
+    from elementzero.adjudication import REPORTS_RELPATH
+    from elementzero.adjudication.artifact_audit import build_artifact_inventory, replay_all
+    from elementzero.adjudication.benchmark_controls import run_benchmark_controls
+    from elementzero.adjudication.diagnostics import build_uncertainty_diagnostics
+    from elementzero.adjudication.report import run_wo11
+    from elementzero.atlas_pin import REPO_ROOT
+    from elementzero.evidence.ledger import read_json
+
+    cmd = args.adjudicate_command
+    if cmd == "wo11":
+        result = run_wo11(out_dir=args.output, workspace_dir=args.workspace)
+        print(canonical_json(result["adjudication"]))
+        return 0
+    if cmd == "audit":
+        inventory = build_artifact_inventory()
+        print(
+            canonical_json(
+                {
+                    "all_unchanged": inventory["all_unchanged"],
+                    "experiments": sorted(inventory["experiments"]),
+                }
+            )
+        )
+        return 0
+    if cmd == "replay":
+        with tempfile.TemporaryDirectory(prefix="wo11-replay-") as tmp:
+            replay = replay_all(workspace_root=tmp)
+        print(
+            canonical_json(
+                {
+                    "replay_status": replay["replay_status"],
+                    "EZ-B002-v1": replay["EZ-B002-v1"]["replay_status"],
+                    "EZ-B003-v1": replay["EZ-B003-v1"]["replay_status"],
+                }
+            )
+        )
+        return 0
+    if cmd == "diagnose":
+        diagnostics = build_uncertainty_diagnostics(
+            b002_dir=REPO_ROOT / "experiments" / "EZ-B002-v1",
+            b003_dir=REPO_ROOT / "experiments" / "EZ-B003-v1",
+        )
+        print(
+            canonical_json(
+                {
+                    bench: {
+                        model: payload["calibration"]
+                        for model, payload in diagnostics[bench]["by_model"].items()
+                    }
+                    for bench in ("EZ-B002-v1", "EZ-B003-v1")
+                }
+            )
+        )
+        return 0
+    if cmd == "controls":
+        with tempfile.TemporaryDirectory(prefix="wo11-controls-") as tmp:
+            controls = run_benchmark_controls(workspace_root=tmp, repo_root=REPO_ROOT)
+        print(
+            canonical_json(
+                {
+                    "benchmark_control_status": controls["benchmark_control_status"],
+                    "EZ-B002": controls["EZ-B002"]["status"],
+                    "EZ-B003": controls["EZ-B003"]["status"],
+                }
+            )
+        )
+        return 0
+    if cmd == "readiness":
+        readiness = read_json(REPO_ROOT / REPORTS_RELPATH / "model_readiness.json")
+        print(
+            canonical_json(
+                {
+                    "model_readiness_verdict": readiness["model_readiness_verdict"],
+                    "reasons": readiness["reasons"],
+                }
+            )
+        )
+        return 0
+    raise SystemExit(f"unknown adjudicate command {cmd!r}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -405,8 +508,10 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         parser.error(f"unknown report command {args.report_command}")
         return 2
+    if args.command == "adjudicate":
+        return _adjudicate(args)
     if args.command != "benchmark":
-        parser.error("only the benchmark and report commands are implemented in v0.2")
+        parser.error("only the benchmark, report, and adjudicate commands are implemented in v0.2")
     cmd = args.benchmark_command
     if cmd == "prepare-targets":
         _require_benchmark(args.benchmark)

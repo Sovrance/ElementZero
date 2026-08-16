@@ -16,6 +16,9 @@ def test_schemas_are_readable_json():
         "geographic_split_manifest.schema.json",
         "shell_mask.schema.json",
         "shell_challenge.schema.json",
+        "wo11_failure_record.schema.json",
+        "wo11_adjudication_report.schema.json",
+        "frontier_model_candidate.schema.json",
     ]
     for name in names:
         payload = json.loads((SCHEMAS / name).read_text(encoding="utf-8"))
