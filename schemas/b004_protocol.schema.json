@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "experiment_id",
+    "freeze_id",
+    "target_rule_hash",
+    "target_identity_digest",
+    "model_roster",
+    "independence_groups",
+    "metrics",
+    "truth_locked"
+  ],
+  "properties": {
+    "experiment_id": {
+      "const": "EZ-B004-v1"
+    },
+    "freeze_id": {
+      "type": "string"
+    },
+    "target_rule_hash": {
+      "type": "string"
+    },
+    "target_identity_digest": {
+      "type": "string"
+    },
+    "model_roster": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "independence_groups": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "truth_locked": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": true
+}

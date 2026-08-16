@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "nuclide_id",
+    "backend_id",
+    "parameter_artifact_id",
+    "converged",
+    "iterations",
+    "basis_policy",
+    "retry_count",
+    "failure_class",
+    "output_hash"
+  ],
+  "properties": {
+    "nuclide_id": {
+      "type": "string"
+    },
+    "backend_id": {
+      "type": "string"
+    },
+    "parameter_artifact_id": {
+      "type": "string"
+    },
+    "converged": {
+      "type": "boolean"
+    },
+    "iterations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "basis_policy": {
+      "type": "string"
+    },
+    "retry_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failure_class": {
+      "enum": [
+        "NONE",
+        "NONCONVERGED",
+        "NUMERICAL_INSTABILITY",
+        "UNSUPPORTED_NUCLIDE",
+        "INVALID_OUTPUT",
+        "RESOURCE_FAILURE"
+      ]
+    },
+    "output_hash": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

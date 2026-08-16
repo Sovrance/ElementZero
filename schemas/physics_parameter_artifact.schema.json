@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "artifact_id",
+    "backend_id",
+    "physics_family",
+    "solver_name",
+    "solver_version",
+    "solver_source_hash",
+    "build_manifest_hash",
+    "parameter_names",
+    "parameter_values",
+    "freeze_id",
+    "training_identity_digest",
+    "calibration_identity_digest",
+    "convergence_status",
+    "fit_log_hash",
+    "provenance_class",
+    "elementzero_commit"
+  ],
+  "properties": {
+    "artifact_id": {
+      "type": "string"
+    },
+    "backend_id": {
+      "type": "string"
+    },
+    "physics_family": {
+      "type": "string"
+    },
+    "solver_name": {
+      "type": "string"
+    },
+    "solver_version": {
+      "type": "string"
+    },
+    "solver_source_hash": {
+      "type": "string"
+    },
+    "build_manifest_hash": {
+      "type": "string"
+    },
+    "parameter_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "parameter_values": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "freeze_id": {
+      "type": "string"
+    },
+    "training_identity_digest": {
+      "type": "string"
+    },
+    "calibration_identity_digest": {
+      "type": "string"
+    },
+    "convergence_status": {
+      "type": "string"
+    },
+    "fit_log_hash": {
+      "type": "string"
+    },
+    "provenance_class": {
+      "enum": [
+        "REFIT_STRICT",
+        "HISTORICAL_FROZEN_EXACT",
+        "HISTORICAL_FROZEN_PARTIAL",
+        "MODERN_REFERENCE",
+        "UNKNOWN_PROVENANCE"
+      ]
+    },
+    "elementzero_commit": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

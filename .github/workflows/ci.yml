@@ -346,3 +346,104 @@ jobs:
       # The report bundle rebuilds byte-for-byte from the committed result
       # trees; no raw snapshot download is required.
       - run: python -m pytest -q tests/integration/test_wo14_results.py::test_wo14_report_reproducible tests/integration/test_wo14_results.py::test_recon_predictions_still_sealed
+
+  wo15-provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      # Provenance is decidable from committed records: no solver build and
+      # no archive download are required in light CI.
+      - run: python -m pytest -q tests/unit/test_wo15_physics_backends.py -k "source_hash or chronology or wo14_artifacts or wo14_truth"
+
+  wo15-backend-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo15_physics_backends.py -k "build_reproducible or nonconvergence or artifact_immutable or distinct_families"
+
+  wo15-golden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      # Golden-output reproduction is verified against the committed
+      # qualification record; the heavy solver lane rebuilds it from source.
+      - run: python -m pytest -q tests/integration/test_wo15_results.py -k "golden or qualification"
+
+  wo15-historical-fit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo15_physics_backends.py tests/integration/test_wo15_results.py -k "membership or weights or freeze or fit_log"
+
+  wo15-independence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo15_physics_backends.py tests/integration/test_wo15_results.py -k "independent or residual_variant or emulator or modern_reference or unknown_provenance or historical_partial"
+
+  wo15-b004-leakage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo15_physics_backends.py tests/integration/test_wo15_results.py -k "target_selection or truth_unavailable or unlock or sealed"
+
+  wo15-claim-firewall:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo15_physics_backends.py tests/integration/test_wo15_results.py -k "pf_badge or schemas or claim or atlas or events"
+
+  wo15-reproducibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      # The report bundle rebuilds byte-for-byte from committed artifacts.
+      - run: python -m pytest -q tests/integration/test_wo15_results.py::test_wo15_report_reproducible

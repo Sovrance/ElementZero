@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "group_id",
+    "functional_class",
+    "solver",
+    "parameter_artifact",
+    "fit_freeze",
+    "independence_verdict",
+    "blind_eligible",
+    "reason"
+  ],
+  "properties": {
+    "group_id": {
+      "type": "string"
+    },
+    "functional_class": {
+      "type": "string"
+    },
+    "solver": {
+      "type": "string"
+    },
+    "parameter_artifact": {
+      "type": "string"
+    },
+    "fit_freeze": {
+      "type": "string"
+    },
+    "independence_verdict": {
+      "enum": [
+        "INDEPENDENT",
+        "NOT_INDEPENDENT",
+        "UNRESOLVED"
+      ]
+    },
+    "blind_eligible": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
