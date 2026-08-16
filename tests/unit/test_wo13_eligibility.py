@@ -293,3 +293,22 @@ def test_schemas_reject_unknown_claim_types():
     assert gate["additionalProperties"] is False
     with pytest.raises(ProtocolError):
         worst_claim("TOTALLY_BLIND_TRUST_ME")
+
+
+def test_subfederation_schema_accepts_structured_exclusions():
+    schema = json.loads(
+        (SCHEMAS / "subfederation_manifest.schema.json").read_text(encoding="utf-8")
+    )
+    items = schema["properties"]["excluded_models"]["items"]
+    # Exclusions are structured records: which model, and under what claim it
+    # was rejected — and the claim vocabulary stays closed.
+    assert items["type"] == "object"
+    assert set(items["required"]) == {"model_id", "claim_type"}
+    assert items["additionalProperties"] is False
+    assert set(items["properties"]["claim_type"]["enum"]) == set(CLAIM_TYPES)
+    # The generated entries match the contract shape exactly.
+    matrix = _matrix(["Z90-N150"])
+    entry = build_subfederation(target_id="Z90-N150", matrix_records=matrix["records"])
+    for excluded in entry["excluded_models"]:
+        assert set(excluded) == {"model_id", "claim_type"}
+        assert excluded["claim_type"] in CLAIM_TYPES

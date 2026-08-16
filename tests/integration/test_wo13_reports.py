@@ -244,6 +244,12 @@ def test_atlas_claim_lineage():
     claims = by_kind["eligibility_claim_validation"]
     assert claims
     fact_ids = {f["fact_id"] for f in facts}
+    controls = {
+        "EZ-SEMF-LS-v1",
+        "EZ-GP-DIRECT-v1",
+        "EZ-SEMF-GP-RESIDUAL-v1",
+        "EZ-GP-OPTIMIZED-CONTROL-v1",
+    }
     for fact in claims:
         content = fact["content"]
         assert content["claim_track"] in ("BLIND", "RECONSTRUCTION")
@@ -252,6 +258,15 @@ def test_atlas_claim_lineage():
         assert "excluded_contributors" in content
         parents = [a for a in fact["assumptions"] if a.startswith("fact:")]
         assert parents and all(p.split("fact:", 1)[1] in fact_ids for p in parents)
+        if content["claim_track"] == "RECONSTRUCTION":
+            eligible = set(content["eligible_contributors"])
+            # A STRICT_BLIND control has no admissible row label on the
+            # reconstruction track; the nonblind BSkG3 reference does.
+            assert not (eligible & controls), content["experiment_id"]
+            assert "EZ-BSKG3-TABLE-v1" in eligible
+            assert controls <= set(content["excluded_contributors"])
+        else:
+            assert controls <= set(content["eligible_contributors"])
 
 
 def test_wo13_gate_status_valid():

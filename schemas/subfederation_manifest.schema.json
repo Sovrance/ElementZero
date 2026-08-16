@@ -24,7 +24,27 @@
     "excluded_models": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "object",
+        "required": [
+          "model_id",
+          "claim_type"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "claim_type": {
+            "enum": [
+              "STRICT_BLIND",
+              "HISTORICAL_BLIND",
+              "PARTIALLY_BLIND",
+              "NONBLIND_REFERENCE",
+              "RECONSTRUCTION_REFERENCE",
+              "INELIGIBLE_UNKNOWN_PROVENANCE"
+            ]
+          }
+        },
+        "additionalProperties": false
       }
     },
     "eligible_independence_groups": {

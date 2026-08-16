@@ -414,20 +414,42 @@ def build_atlas_lineage(
         for track_id, claim_manifest in sorted(claim_manifests.items()):
             if not track_id.startswith(experiment_id.rsplit("-", 1)[0]):
                 continue
-            eligible = sorted(
-                {
-                    m
-                    for target in manifest["targets"]
-                    for m in target["eligible_models"]
-                }
-            )
-            excluded_models = sorted(
-                {
-                    entry["model_id"]
-                    for target in manifest["targets"]
-                    for entry in target["excluded_models"]
-                }
-            )
+            # Contributors are derived from the TRACK's own allowed claim
+            # types. The strict-blind subfederation is the authority for the
+            # BLIND track; the RECONSTRUCTION track filters the eligibility
+            # matrix instead — a STRICT_BLIND control has no admissible row
+            # label there, while the nonblind BSkG3 reference does.
+            if claim_manifest["claim_track"] == TRACK_BLIND:
+                eligible = sorted(
+                    {
+                        m
+                        for target in manifest["targets"]
+                        for m in target["eligible_models"]
+                    }
+                )
+                excluded_models = sorted(
+                    {
+                        entry["model_id"]
+                        for target in manifest["targets"]
+                        for entry in target["excluded_models"]
+                    }
+                )
+            else:
+                allowed = set(claim_manifest["allowed_claim_types"])
+                eligible = sorted(
+                    {
+                        record["model_id"]
+                        for record in matrix["records"]
+                        if record["claim_type"] in allowed
+                    }
+                )
+                excluded_models = sorted(
+                    {
+                        record["model_id"]
+                        for record in matrix["records"]
+                        if record["claim_type"] not in allowed
+                    }
+                )
             _fact(
                 {
                     "kind": CLAIM_FACT_KIND,
