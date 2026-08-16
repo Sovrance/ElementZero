@@ -419,45 +419,60 @@ def build_atlas_lineage(
             # BLIND track; the RECONSTRUCTION track filters the eligibility
             # matrix instead — a STRICT_BLIND control has no admissible row
             # label there, while the nonblind BSkG3 reference does.
+            #
+            # A model's eligibility can differ per target (FRDM95 is blind
+            # on the post-1995 targets only), so the three contributor
+            # buckets are DISJOINT: eligible on every target, excluded on
+            # every target, or partial with explicit per-target counts —
+            # never one model in two flat lists.
             if claim_manifest["claim_track"] == TRACK_BLIND:
-                eligible = sorted(
-                    {
-                        m
-                        for target in manifest["targets"]
-                        for m in target["eligible_models"]
-                    }
-                )
-                excluded_models = sorted(
-                    {
-                        entry["model_id"]
-                        for target in manifest["targets"]
-                        for entry in target["excluded_models"]
-                    }
-                )
+                eligible_by_target = {
+                    target["target_id"]: set(target["eligible_models"])
+                    for target in manifest["targets"]
+                }
             else:
                 allowed = set(claim_manifest["allowed_claim_types"])
-                eligible = sorted(
-                    {
-                        record["model_id"]
-                        for record in matrix["records"]
-                        if record["claim_type"] in allowed
-                    }
+                eligible_by_target = {}
+                for record in matrix["records"]:
+                    bucket = eligible_by_target.setdefault(
+                        record["nuclide_id"], set()
+                    )
+                    if record["claim_type"] in allowed:
+                        bucket.add(record["model_id"])
+            n_targets = len(eligible_by_target)
+            eligible = []
+            excluded_models = []
+            partial: dict[str, dict[str, int]] = {}
+            for model_id in matrix["model_ids"]:
+                n_eligible = sum(
+                    1
+                    for models in eligible_by_target.values()
+                    if model_id in models
                 )
-                excluded_models = sorted(
-                    {
-                        record["model_id"]
-                        for record in matrix["records"]
-                        if record["claim_type"] not in allowed
+                if n_eligible == n_targets:
+                    eligible.append(model_id)
+                elif n_eligible == 0:
+                    excluded_models.append(model_id)
+                else:
+                    partial[model_id] = {
+                        "n_eligible_targets": n_eligible,
+                        "n_excluded_targets": n_targets - n_eligible,
                     }
-                )
             _fact(
                 {
                     "kind": CLAIM_FACT_KIND,
                     "experiment_id": claim_manifest["experiment_id"],
                     "claim_track": claim_manifest["claim_track"],
                     "claim_type": claim_manifest["allowed_claim_types"],
+                    "n_targets": n_targets,
                     "eligible_contributors": eligible,
                     "excluded_contributors": excluded_models,
+                    "partially_eligible_contributors": partial,
+                    "contributor_bucket_rule": (
+                        "buckets are disjoint: eligible on every target, "
+                        "excluded on every target, or partial with explicit "
+                        "per-target counts"
+                    ),
                     "eligibility_manifest_hash": claim_manifest[
                         "eligibility_manifest_hash"
                     ],

@@ -254,19 +254,35 @@ def test_atlas_claim_lineage():
         content = fact["content"]
         assert content["claim_track"] in ("BLIND", "RECONSTRUCTION")
         assert content["eligibility_manifest_hash"]
-        assert "eligible_contributors" in content
-        assert "excluded_contributors" in content
         parents = [a for a in fact["assumptions"] if a.startswith("fact:")]
         assert parents and all(p.split("fact:", 1)[1] in fact_ids for p in parents)
+        eligible = set(content["eligible_contributors"])
+        excluded = set(content["excluded_contributors"])
+        partial = content["partially_eligible_contributors"]
+        # The three buckets partition the roster: no model in two lists.
+        assert not (eligible & excluded)
+        assert not (eligible & set(partial))
+        assert not (excluded & set(partial))
+        assert len(eligible) + len(excluded) + len(partial) == 10
+        for counts in partial.values():
+            assert counts["n_eligible_targets"] > 0
+            assert counts["n_excluded_targets"] > 0
+            assert (
+                counts["n_eligible_targets"] + counts["n_excluded_targets"]
+                == content["n_targets"]
+            )
         if content["claim_track"] == "RECONSTRUCTION":
-            eligible = set(content["eligible_contributors"])
             # A STRICT_BLIND control has no admissible row label on the
             # reconstruction track; the nonblind BSkG3 reference does.
             assert not (eligible & controls), content["experiment_id"]
             assert "EZ-BSKG3-TABLE-v1" in eligible
-            assert controls <= set(content["excluded_contributors"])
+            assert controls <= excluded
         else:
-            assert controls <= set(content["eligible_contributors"])
+            assert controls <= eligible
+            if content["experiment_id"] == "EZ-B003-v2-real-blind":
+                # FRDM95 is blind on the 12 post-1995 targets only: partial,
+                # with the counts saying exactly how partial.
+                assert partial["EZ-FRDM95-TABLE-v1"]["n_eligible_targets"] == 12
 
 
 def test_wo13_gate_status_valid():
