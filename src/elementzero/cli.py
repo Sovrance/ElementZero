@@ -7,7 +7,13 @@ import json
 import sys
 from pathlib import Path
 
-from elementzero import BENCHMARK_EZ_B001, BENCHMARK_EZ_B001_TITLE, BENCHMARK_EZ_B002, __version__
+from elementzero import (
+    BENCHMARK_EZ_B001,
+    BENCHMARK_EZ_B001_TITLE,
+    BENCHMARK_EZ_B002,
+    BENCHMARK_EZ_B003,
+    __version__,
+)
 from elementzero.benchmark.b001_finalize import finalize
 from elementzero.benchmark.b001_freeze import freeze_training, load_freeze
 from elementzero.benchmark.b001_predict import load_targets, predict_run
@@ -18,6 +24,11 @@ from elementzero.benchmark.b002_freeze import freeze_geographic_split, load_geog
 from elementzero.benchmark.b002_predict import load_region_targets, run_region_suite
 from elementzero.benchmark.b002_prepare import prepare_geographic_split
 from elementzero.benchmark.b002_score import score_region_suite
+from elementzero.benchmark.b003_finalize import finalize_shell_run
+from elementzero.benchmark.b003_freeze import freeze_shell_split, load_shell_freeze
+from elementzero.benchmark.b003_predict import load_shell_targets, run_shell_suite
+from elementzero.benchmark.b003_prepare import PROFILE_DISCOVERY, PROFILES, prepare_shell_split
+from elementzero.benchmark.b003_score import SCOPE_SYNTHETIC, score_shell_suite
 from elementzero.benchmark.model_suite import run_suite, score_suite
 from elementzero.benchmark.regions import Region
 from elementzero.evidence.hashing import canonical_json
@@ -27,6 +38,12 @@ from elementzero.experiments.b002_runner import (
     score_b002,
     seal_b002,
     select_regions_for_source,
+)
+from elementzero.experiments.b003_runner import (
+    read_challenges,
+    score_b003,
+    seal_b003,
+    select_challenges_for_source,
 )
 from elementzero.experiments.epochs import epoch_for
 from elementzero.experiments.preregister import (
@@ -268,6 +285,92 @@ def build_parser() -> argparse.ArgumentParser:
     b002_score_exp.add_argument("--edition", default="AME2020")
     b002_score_exp.add_argument("--dir", required=True, help="experiment directory")
     b002_score_exp.add_argument("--created-at", default=None)
+
+    # ------------------------------------------------------------------ #
+    # EZ-B003 hidden shell rediscovery challenge (WO-10)                   #
+    # ------------------------------------------------------------------ #
+
+    b003_challenges = bsub.add_parser(
+        "b003-select-challenges",
+        help=(
+            "apply the availability and support rules to one snapshot and write "
+            "challenges.json (every closure, EVALUABLE or NOT_EVALUABLE)"
+        ),
+    )
+    b003_challenges.add_argument("--source", required=True, help="frozen mass snapshot")
+    b003_challenges.add_argument("--edition", default="AME2020")
+    b003_challenges.add_argument("--output", required=True, help="challenges.json to write")
+    b003_challenges.add_argument("--source-relpath", default=None)
+
+    b003_prepare = bsub.add_parser(
+        "b003-prepare",
+        help="split one snapshot around one hidden closure neighborhood",
+    )
+    b003_prepare.add_argument("--source", required=True)
+    b003_prepare.add_argument("--edition", default="AME2020")
+    b003_prepare.add_argument("--challenges", required=True, help="preregistered challenges.json")
+    b003_prepare.add_argument("--challenge-id", required=True, help="e.g. neutron-N82")
+    b003_prepare.add_argument("--profile", default=PROFILE_DISCOVERY, choices=list(PROFILES))
+    b003_prepare.add_argument("--out", required=True, help="challenge directory")
+
+    b003_freeze = bsub.add_parser(
+        "b003-freeze", help="build the KnowledgeFreeze for one hidden-shell split"
+    )
+    b003_freeze.add_argument("--source", required=True)
+    b003_freeze.add_argument("--edition", default="AME2020")
+    b003_freeze.add_argument("--split-manifest", required=True)
+    b003_freeze.add_argument("--output", required=True)
+
+    b003_predict = bsub.add_parser(
+        "b003-predict",
+        help="fit outside one closure neighborhood and predict inside it, one run per model",
+    )
+    b003_predict.add_argument("--source", required=True)
+    b003_predict.add_argument("--edition", default="AME2020")
+    b003_predict.add_argument("--freeze", required=True)
+    b003_predict.add_argument("--targets", required=True)
+    b003_predict.add_argument("--out", required=True, help="suite directory")
+
+    b003_finalize = bsub.add_parser("b003-finalize", help="seal one EZ-B003 shell run")
+    b003_finalize.add_argument("--run", required=True)
+
+    b003_score = bsub.add_parser(
+        "b003-score",
+        help="score every sealed model run of one closure and compare them",
+    )
+    b003_score.add_argument("--suite", required=True, help="closure runs directory")
+    b003_score.add_argument("--source", required=True, help="the frozen snapshot")
+    b003_score.add_argument("--edition", default="AME2020")
+    b003_score.add_argument(
+        "--scope",
+        default=SCOPE_SYNTHETIC,
+        help="what is being scored, e.g. synthetic or AME2020; recorded in every verdict",
+    )
+    b003_score.add_argument("--out", default=None)
+
+    b003_seal = bsub.add_parser(
+        "b003-seal-experiment",
+        help=(
+            "split, freeze, predict, and seal every evaluable closure, and freeze the "
+            "rediscovery thresholds (no closure truth read)"
+        ),
+    )
+    b003_seal.add_argument("--source", required=True)
+    b003_seal.add_argument("--edition", default="AME2020")
+    b003_seal.add_argument("--challenges", required=True)
+    b003_seal.add_argument("--dir", required=True, help="experiment directory")
+    b003_seal.add_argument("--scope", default=SCOPE_SYNTHETIC)
+    b003_seal.add_argument("--profile", default=PROFILE_DISCOVERY, choices=list(PROFILES))
+    b003_seal.add_argument("--created-at", default=None, help="pin timestamps for reproducibility")
+
+    b003_score_exp = bsub.add_parser(
+        "b003-score-experiment",
+        help="score every sealed closure and write the all-closure aggregate",
+    )
+    b003_score_exp.add_argument("--source", required=True)
+    b003_score_exp.add_argument("--edition", default="AME2020")
+    b003_score_exp.add_argument("--dir", required=True, help="experiment directory")
+    b003_score_exp.add_argument("--created-at", default=None)
 
     report = sub.add_parser("report", help="build repository reports from committed artifacts")
     rsub = report.add_subparsers(dest="report_command", required=True)
@@ -635,8 +738,193 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0
+    if cmd == "b003-select-challenges":
+        result = select_challenges_for_source(
+            source=args.source,
+            edition_id=args.edition,
+            output=args.output,
+            source_relpath=args.source_relpath,
+        )
+        manifest = result["manifest"]
+        print(
+            canonical_json(
+                {
+                    "benchmark_id": BENCHMARK_EZ_B003,
+                    "n_challenges": manifest["n_challenges"],
+                    "evaluable_challenge_ids": manifest["evaluable_challenge_ids"],
+                    "not_evaluable_challenge_ids": manifest["not_evaluable_challenge_ids"],
+                    "challenge_manifest_hash": manifest["challenge_manifest_hash"],
+                }
+            )
+        )
+        return 0
+    if cmd == "b003-prepare":
+        challenges = read_challenges(args.challenges)
+        mask = _mask_by_challenge_id(challenges, args.challenge_id)
+        result = prepare_shell_split(
+            source=args.source,
+            edition_id=args.edition,
+            mask=mask,
+            challenge_manifest_hash=challenges["challenge_manifest_hash"],
+            out_dir=args.out,
+            profile=args.profile,
+        )
+        manifest = result["split_manifest"]
+        print(
+            canonical_json(
+                {
+                    "challenge_id": manifest["challenge_id"],
+                    "mask_id": manifest["mask_id"],
+                    "profile": manifest["profile"],
+                    "n_targets": manifest["n_targets"],
+                    "n_training": manifest["n_training"],
+                    "n_supported_chains": manifest["n_supported_chains"],
+                    "split_digest": manifest["split_digest"],
+                }
+            )
+        )
+        return 0
+    if cmd == "b003-freeze":
+        shell = freeze_shell_split(
+            source=args.source,
+            edition_id=args.edition,
+            split_manifest=args.split_manifest,
+            output=args.output,
+        )
+        print(
+            canonical_json(
+                {
+                    "freeze_id": shell.freeze_id,
+                    "challenge_id": shell.challenge_id,
+                    "mask_id": shell.mask_id,
+                    "profile": shell.profile,
+                    "n_train": len(shell.freeze.training_nuclide_ids),
+                    "split_digest": shell.split_digest,
+                }
+            )
+        )
+        return 0
+    if cmd == "b003-predict":
+        suite = run_shell_suite(
+            shell_freeze=load_shell_freeze(args.freeze),
+            targets=load_shell_targets(args.targets),
+            source=args.source,
+            edition_id=args.edition,
+            suite_dir=args.out,
+        )
+        print(
+            canonical_json(
+                {
+                    "model_suite_id": suite["model_suite_id"],
+                    "model_ids": suite["model_ids"],
+                    "challenge_id": suite["challenge_id"],
+                    "mask_id": suite["mask_id"],
+                    "suite_dir": suite["suite_dir"],
+                }
+            )
+        )
+        return 0
+    if cmd == "b003-finalize":
+        marker = finalize_shell_run(args.run)
+        print(
+            canonical_json(
+                {
+                    "marker": marker["marker"],
+                    "challenge_id": marker["challenge_id"],
+                    "mask_id": marker["mask_id"],
+                }
+            )
+        )
+        return 0
+    if cmd == "b003-score":
+        comparison = score_shell_suite(
+            suite_dir=args.suite,
+            truth_source=args.source,
+            truth_edition_id=args.edition,
+            scope=args.scope,
+            out_dir=args.out,
+        )
+        print(
+            canonical_json(
+                {
+                    "challenge_id": comparison["challenge_id"],
+                    "scope": comparison["scope"],
+                    "columns": comparison["columns"],
+                    "rows": [
+                        {c: row[c] for c in comparison["columns"]} for row in comparison["rows"]
+                    ],
+                }
+            )
+        )
+        return 0
+    if cmd == "b003-seal-experiment":
+        result = seal_b003(
+            source=args.source,
+            edition_id=args.edition,
+            challenges_path=args.challenges,
+            experiment_dir=args.dir,
+            scope=args.scope,
+            profile=args.profile,
+            created_at=args.created_at,
+        )
+        print(
+            canonical_json(
+                {
+                    "experiment_dir": result["experiment_dir"],
+                    "challenge_ids": result["challenge_ids"],
+                    "not_evaluable_challenge_ids": result["sealed"][
+                        "not_evaluable_challenge_ids"
+                    ],
+                    "criterion_sha256": result["sealed"]["criterion_sha256"],
+                    "sealed_predictions_sha256": result["sealed_predictions_sha256"],
+                    "state": result["sealed"]["state"],
+                }
+            )
+        )
+        return 0
+    if cmd == "b003-score-experiment":
+        result = score_b003(
+            source=args.source,
+            edition_id=args.edition,
+            experiment_dir=args.dir,
+            created_at=args.created_at,
+        )
+        aggregate = result["aggregate"]
+        print(
+            canonical_json(
+                {
+                    "experiment_dir": result["experiment_dir"],
+                    "scope": aggregate["scope"],
+                    "challenge_ids": aggregate["challenge_ids"],
+                    "not_evaluable_closures": [
+                        entry["challenge_id"] for entry in aggregate["not_evaluable_closures"]
+                    ],
+                    "model_ids": aggregate["model_ids"],
+                    "n_scored_targets": aggregate["n_scored_targets"],
+                    "verdicts": {
+                        model_id: aggregate["by_model"][model_id]["criterion"]["verdict"]
+                        for model_id in aggregate["model_ids"]
+                    },
+                    "columns": aggregate["columns"],
+                    "rows": [
+                        {c: row[c] for c in aggregate["columns"]} for row in aggregate["rows"]
+                    ],
+                }
+            )
+        )
+        return 0
     parser.error(f"unknown benchmark command {cmd}")
     return 2
+
+
+def _mask_by_challenge_id(challenges: dict, challenge_id: str):
+    masks = challenges["masks"]
+    if challenge_id in masks:
+        return masks[challenge_id]
+    known = sorted(masks)
+    raise SystemExit(
+        f"challenge {challenge_id!r} has no mask; evaluable challenges are {known}"
+    )
 
 
 def _region_by_id(regions: dict, region_id: str) -> Region:

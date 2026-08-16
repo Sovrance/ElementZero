@@ -87,9 +87,25 @@ PREDICTION_SET_WARNING = (
     "Aggregate of model predictions; the set inherits the model conditioning of "
     "every prediction it summarizes."
 )
+DERIVED_OBSERVABLE_WARNING = (
+    "Derived observable: an algebraic combination of binding energies, which are "
+    "themselves algebraic combinations of mass excesses. It is not independent "
+    "evidence from its inputs and it is not a direct measurement."
+)
+SHELL_HYPOTHESIS_WARNING = (
+    "Hypothesis bookkeeping only. A discriminating shell-gap indicator is "
+    "consistent with local shell structure; it does not establish a magic number, "
+    "and it is not evidence for any unobserved closure."
+)
 ADAPTER_VERSION = "0.3.0"
 SOUND_ANALYZER_ID = "elementzero.evidence.normalize"
 HEURISTIC_ANALYZER_ID = "elementzero.models.predict"
+
+# EZ-B003 competing structure hypotheses (WO-10 section 10). H0 and H1 are two
+# members of one family, distinguished by one preregistered observable.
+SHELL_HYPOTHESIS_FAMILY = "nuclear_local_shell_discontinuity"
+SHELL_HYPOTHESIS_H0 = "H0"
+SHELL_HYPOTHESIS_H1 = "H1"
 
 # Persisted Atlas bundle layout inside a run directory.
 ATLAS_DIRNAME = "atlas"
@@ -366,6 +382,7 @@ class AtlasEvidenceAdapter:
         atlas_pir_ref: str | None = None,
         elementzero_commit: str | None = None,
         geographic_split: Mapping[str, Any] | None = None,
+        shell_split: Mapping[str, Any] | None = None,
         status: str | FactStatus = FactStatus.SUPPORTED,
     ) -> Fact:
         analyzer = _sound_analyzer()
@@ -387,6 +404,11 @@ class AtlasEvidenceAdapter:
             # boundary. The key is absent for historical freezes, so a B001 fact
             # ID stays exactly what it was.
             content["geographic_split"] = dict(geographic_split)
+        if shell_split is not None:
+            # EZ-B003 freezes the neighborhood of one known closure. Same rule:
+            # the key is absent for B001 and B002 freezes, so their fact IDs are
+            # untouched.
+            content["shell_split"] = dict(shell_split)
         depends_on = (training_dataset_fact_id,)
         assumptions = (f"freeze:{freeze_id}",)
         return Fact(
@@ -423,6 +445,9 @@ class AtlasEvidenceAdapter:
         uncertainty_method: str | None = None,
         region_id: str | None = None,
         region_manifest_hash: str | None = None,
+        challenge_id: str | None = None,
+        mask_id: str | None = None,
+        mask_hash: str | None = None,
         status: str | FactStatus = FactStatus.UNRESOLVED,
     ) -> Fact:
         """Model-conditioned fit result: E3, HEURISTIC, warned."""
@@ -444,6 +469,14 @@ class AtlasEvidenceAdapter:
             content["region_id"] = region_id
         if region_manifest_hash is not None:
             content["region_manifest_hash"] = region_manifest_hash
+        # WO-10: for EZ-B003 the withheld closure neighborhood is part of the
+        # fit's identity, exactly as the region is for EZ-B002.
+        if challenge_id is not None:
+            content["challenge_id"] = challenge_id
+        if mask_id is not None:
+            content["mask_id"] = mask_id
+        if mask_hash is not None:
+            content["mask_hash"] = mask_hash
         depends_on = (knowledge_freeze_fact_id, training_dataset_fact_id)
         assumptions = (f"freeze:{freeze_id}", f"model:{model_id}")
         return Fact(
@@ -715,6 +748,353 @@ class AtlasEvidenceAdapter:
             measurement_interface=(NUCLEAR_MASS_INTERFACE,),
         )
         return fact
+
+    # ------------------------------------------------------------------ #
+    # EZ-B003 hidden-shell rediscovery (WO-10 sections 4, 5, 10)          #
+    # ------------------------------------------------------------------ #
+
+    def shell_masking_intervention(
+        self,
+        *,
+        challenge_id: str,
+        mask: Mapping[str, Any],
+        mask_id: str,
+        indicator: str,
+    ) -> Intervention:
+        """The masking act itself, as an Atlas Intervention.
+
+        Withholding a closure neighborhood changes the boundary of the training
+        corpus, which is what makes the indicator at the closure a prediction
+        instead of a lookup. ``BOUNDARY_CHANGE`` is the closest admissible Atlas
+        kind; no nuclear-only enum value is invented.
+        """
+        return self.nuclear_intervention(
+            intervention_id=content_id("int", {"mask_id": mask_id, "kind": "shell_mask"}),
+            target=challenge_id,
+            kind="BOUNDARY_CHANGE",
+            parameters={
+                "mask_id": mask_id,
+                "mask": dict(mask),
+                "discriminating_observable": indicator,
+                "withheld": "every ground-truth-eligible mass inside the closure neighborhood",
+            },
+        )
+
+    def shell_hypothesis_pair(
+        self,
+        *,
+        challenge_id: str,
+        indicator: str,
+        closure_label: str,
+        intervention: Intervention,
+        derived_from_facts: Sequence[str] = (),
+        assumptions: Sequence[str] = (),
+    ) -> dict[str, Hypothesis]:
+        """H0 and H1 for one masked closure, as competing members of one family.
+
+        The pair is bookkeeping (WO-10 section 10): it records which two
+        structures the benchmark is asked to distinguish, and by which single
+        observable. No unrelated Atlas conjecture is imported.
+        """
+        family = f"{SHELL_HYPOTHESIS_FAMILY}:{challenge_id}"
+        distinguishing = (
+            {
+                "intervention_id": intervention.intervention_id,
+                "kind": intervention.kind,
+                "target": intervention.target,
+                "discriminating_observable": indicator,
+            },
+        )
+        pair = {}
+        for label, sign in ((SHELL_HYPOTHESIS_H0, "<= 0"), (SHELL_HYPOTHESIS_H1, "> 0")):
+            hyp = Hypothesis(
+                hypothesis_id=content_id("hyp", {"challenge_id": challenge_id, "label": label}),
+                family=family,
+                status=HypothesisStatus.ACTIVE,
+                derived_from_facts=tuple(derived_from_facts),
+                assumptions=tuple(assumptions),
+                compatibility=(
+                    {
+                        "observable": indicator,
+                        "at": closure_label,
+                        "predicted_indicator": sign,
+                    },
+                ),
+                distinguishing_interventions=distinguishing,
+            )
+            self.hypotheses[hyp.hypothesis_id] = hyp
+            pair[label] = hyp
+        return pair
+
+    def resolve_shell_hypotheses(
+        self,
+        hypotheses: Mapping[str, Hypothesis],
+        *,
+        selected_label: str | None,
+        derived_from_facts: Sequence[str] = (),
+    ) -> dict[str, Hypothesis]:
+        """New Hypothesis objects with the statuses one surface implies.
+
+        Atlas hypotheses are immutable, so a resolution is a new object rather
+        than a mutation. ``selected_label`` of ``None`` leaves both ACTIVE, which
+        is the correct record when the indicator was not computable.
+        """
+        if selected_label is not None and selected_label not in hypotheses:
+            raise ValueError(f"unknown hypothesis label {selected_label!r}")
+        resolved = {}
+        for label, hyp in hypotheses.items():
+            if selected_label is None:
+                status = HypothesisStatus.ACTIVE
+            elif label == selected_label:
+                status = HypothesisStatus.SELECTED_REPRESENTATIVE
+            else:
+                status = HypothesisStatus.ELIMINATED
+            resolved[label] = Hypothesis(
+                hypothesis_id=hyp.hypothesis_id,
+                family=hyp.family,
+                status=status,
+                derived_from_facts=tuple(derived_from_facts) or hyp.derived_from_facts,
+                assumptions=hyp.assumptions,
+                candidate_class=hyp.candidate_class,
+                equivalence_class_id=hyp.equivalence_class_id,
+                compatibility=hyp.compatibility,
+                distinguishing_interventions=hyp.distinguishing_interventions,
+            )
+        return resolved
+
+    def shell_hypothesis_fact(
+        self,
+        *,
+        challenge_id: str,
+        axis: str,
+        closure: int,
+        indicator: str,
+        mask: Mapping[str, Any],
+        mask_id: str,
+        mask_hash: str,
+        hypotheses: Mapping[str, Hypothesis],
+        statements: Mapping[str, str],
+        intervention: Intervention,
+        knowledge_freeze_fact_id: str,
+        decision_rule: str,
+        freeze_id: str,
+        status: str | FactStatus = FactStatus.UNRESOLVED,
+    ) -> Fact:
+        """The H0/H1 bookkeeping node, created before any hidden truth is read.
+
+        It is UNRESOLVED at prediction time by construction: the benchmark
+        declares what it will try to distinguish before it can see the answer.
+        """
+        missing = sorted(set(hypotheses) - set(statements))
+        if missing:
+            raise ValueError(f"shell hypotheses without a statement: {missing}")
+        analyzer = _sound_analyzer()
+        content = {
+            "kind": "nuclear_shell_hypothesis_set",
+            "challenge_id": challenge_id,
+            "axis": axis,
+            "closure": int(closure),
+            "discriminating_observable": indicator,
+            "mask": dict(mask),
+            "mask_id": mask_id,
+            "mask_hash": mask_hash,
+            "freeze_id": freeze_id,
+            "hypotheses": [
+                {**hypotheses[label].to_dict(), "label": label, "statement": statements[label]}
+                for label in sorted(hypotheses)
+            ],
+            "intervention": intervention.to_dict(),
+            "decision_rule": decision_rule,
+            "bookkeeping_only": True,
+        }
+        depends_on = (knowledge_freeze_fact_id,)
+        assumptions = (f"freeze:{freeze_id}", f"shell_mask:{mask_hash}")
+        return Fact(
+            fact_id=compute_fact_id(
+                content, analyzer, depends_on_facts=depends_on, assumptions=assumptions
+            ),
+            pir_level=PirLevel.L2,
+            evidence_level=EvidenceLevel.E2,
+            layer=Layer.DOMAIN,
+            namespace=Namespace.domain,
+            status=status,
+            analyzer=analyzer,
+            content=content,
+            created_at=self.created_at,
+            depends_on_facts=depends_on,
+            assumptions=assumptions,
+            source_spans=({"artifact_id": mask_hash, "span": f"shell_challenge:{challenge_id}"},),
+            measurement_interface=(NUCLEAR_MASS_INTERFACE,),
+            warnings=(
+                Warning_(
+                    location=f"shell_hypotheses:{challenge_id}",
+                    message=SHELL_HYPOTHESIS_WARNING,
+                ),
+            ),
+        )
+
+    def derived_observable_fact(
+        self,
+        *,
+        record: Mapping[str, Any],
+        surface: str,
+        depends_on_facts: Sequence[str],
+        challenge_id: str,
+        mask_id: str,
+        freeze_id: str,
+        model_id: str | None = None,
+        status: str | FactStatus = FactStatus.SUPPORTED,
+    ) -> Fact:
+        """One S2n/S2p/delta2n/delta2p value, marked derived (WO-10 section 4).
+
+        ``record`` is ``physics.separation.derivation_record`` output, so the
+        stored fact carries the exact inputs and the origin of each one. The fact
+        always says ``derived = true`` and ``independent_evidence = false``: a
+        shell gap re-expresses the masses it was built from, and a reader of the
+        evidence graph must not have to infer that.
+        """
+        if not record.get("derived", False) or record.get("independent_evidence", True):
+            raise ValueError(
+                "a derived observable record must declare derived = true and "
+                "independent_evidence = false"
+            )
+        origins = list(record.get("input_origins", ()))
+        model_conditioned = "prediction" in origins
+        analyzer = _heuristic_analyzer() if model_conditioned else _sound_analyzer()
+        content = {
+            "kind": "nuclear_derived_observable",
+            "observable": record["observable"],
+            "definition": record["definition"],
+            "separation_policy_id": record["separation_policy_id"],
+            "nuclide_id": record["nuclide_id"],
+            "Z": record["Z"],
+            "N": record["N"],
+            "value_MeV": record["value_MeV"],
+            "unit": "MeV",
+            "surface": surface,
+            "derived": True,
+            "independent_evidence": False,
+            "model_conditioned": model_conditioned,
+            "derived_from": list(record["derived_from"]),
+            "input_origins": origins,
+            "inputs": [dict(item) for item in record["inputs"]],
+            "derivation_rule": record["derivation_rule"],
+            "challenge_id": challenge_id,
+            "mask_id": mask_id,
+            "freeze_id": freeze_id,
+            "model_id": model_id,
+        }
+        depends_on = tuple(sorted(set(depends_on_facts)))
+        if not depends_on:
+            raise ValueError("a derived observable must depend on the facts it was derived from")
+        assumptions = (f"freeze:{freeze_id}", f"separation:{record['separation_policy_id']}")
+        return Fact(
+            fact_id=compute_fact_id(
+                content, analyzer, depends_on_facts=depends_on, assumptions=assumptions
+            ),
+            pir_level=PirLevel.L2,
+            evidence_level=EvidenceLevel.E3 if model_conditioned else EvidenceLevel.E2,
+            layer=Layer.DOMAIN,
+            namespace=Namespace.analyst if model_conditioned else Namespace.domain,
+            status=status,
+            analyzer=analyzer,
+            content=content,
+            created_at=self.created_at,
+            depends_on_facts=depends_on,
+            assumptions=assumptions,
+            source_spans=(
+                {
+                    "artifact_id": freeze_id,
+                    "span": f"{surface}:{record['observable']}:{record['nuclide_id']}",
+                },
+            ),
+            measurement_interface=(NUCLEAR_MASS_INTERFACE,),
+            warnings=(
+                Warning_(
+                    location=f"derived_observable:{record['observable']}:{record['nuclide_id']}",
+                    message=DERIVED_OBSERVABLE_WARNING,
+                ),
+            ),
+        )
+
+    def shell_discovery_fact(
+        self,
+        *,
+        benchmark_id: str,
+        challenge_id: str,
+        mask_id: str,
+        indicator: str,
+        model_id: str,
+        run_id: str,
+        scope: str,
+        protocol_version: str,
+        discovery_metrics: Mapping[str, Any],
+        criterion: Mapping[str, Any],
+        resolution: Mapping[str, Any],
+        hypotheses: Mapping[str, Hypothesis],
+        validation_fact_id: str,
+        hypothesis_set_fact_id: str,
+        derived_observable_fact_ids: Sequence[str],
+        status: str | FactStatus = FactStatus.SUPPORTED,
+    ) -> Fact:
+        """What the reconstructed surface says about H0 vs H1 for one closure.
+
+        The verdict stays a string in the content instead of an Atlas
+        ``Verdict``: the Atlas enum describes symbolic identifiability results,
+        and a rediscovery criterion is neither.
+
+        The fact is E3 and HEURISTIC because every number in it is conditioned on
+        one model's reconstruction of the withheld masses. Atlas refuses a SOUND
+        analyzer at E3, and that refusal is correct here: a discovery result is a
+        statement about a model, not about the chart.
+        """
+        analyzer = _heuristic_analyzer()
+        content = {
+            "kind": "nuclear_shell_discovery",
+            "benchmark_id": benchmark_id,
+            "protocol_version": protocol_version,
+            "challenge_id": challenge_id,
+            "mask_id": mask_id,
+            "discriminating_observable": indicator,
+            "model_id": model_id,
+            "run_id": run_id,
+            "scope": scope,
+            "discovery_metrics": dict(discovery_metrics),
+            "criterion": dict(criterion),
+            "resolution": dict(resolution),
+            "hypotheses": [
+                {**hypotheses[label].to_dict(), "label": label} for label in sorted(hypotheses)
+            ],
+            "derived": True,
+            "independent_evidence": False,
+        }
+        depends_on = tuple(
+            sorted({validation_fact_id, hypothesis_set_fact_id, *derived_observable_fact_ids})
+        )
+        assumptions = (f"benchmark:{benchmark_id}", f"shell_challenge:{challenge_id}")
+        return Fact(
+            fact_id=compute_fact_id(
+                content, analyzer, depends_on_facts=depends_on, assumptions=assumptions
+            ),
+            pir_level=PirLevel.L2,
+            evidence_level=EvidenceLevel.E3,
+            layer=Layer.DOMAIN,
+            namespace=Namespace.analyst,
+            status=status,
+            analyzer=analyzer,
+            content=content,
+            created_at=self.created_at,
+            depends_on_facts=depends_on,
+            assumptions=assumptions,
+            source_spans=({"artifact_id": run_id, "span": f"shell_discovery:{challenge_id}"},),
+            measurement_interface=(NUCLEAR_MASS_INTERFACE,),
+            warnings=(
+                Warning_(
+                    location=f"shell_discovery:{challenge_id}",
+                    message=SHELL_HYPOTHESIS_WARNING,
+                ),
+            ),
+        )
 
     def rehydrate(self, payloads: Iterable[Mapping[str, Any]]) -> list[Fact]:
         """Rebuild persisted facts into this adapter's store, parents first."""

@@ -117,6 +117,123 @@ def write_small_synthetic_chart(path: Path) -> Path:
     return write_ame_table(path, small_synthetic_chart_rows(), AME2020)
 
 
+# --------------------------------------------------------------------------- #
+# EZ-B003 synthetic shell chart with an injected discontinuity                 #
+# --------------------------------------------------------------------------- #
+# WO-10 section 8 asks for a synthetic mass surface with an injected shell-like
+# discontinuity *before* any known closure is scored, so that the benchmark
+# mechanics can be validated where the answer is known by construction.
+#
+# The surface is the same toy SEMF plus smooth ripple as the EZ-B002 chart, with
+# two injected kinks added to the binding energy:
+#
+#     E_shell(Z, N) = -g_n * max(0, N - N0) - g_p * max(0, Z - Z0)
+#
+# Each kink is exactly the shape a shell closure leaves in a mass surface: the
+# two-nucleon separation energy drops by a constant amount once the closure is
+# passed. Expanding the indicator shows why the injected feature is a spike of
+# known height at exactly one coordinate, and zero everywhere else in the same
+# parity class:
+#
+#     delta2n(Z, N0)   = 2*E(N0) - E(N0-2) - E(N0+2) = 0 - 0 + 2*g_n = +2*g_n
+#     delta2n(Z, N0+2) = 2*E(N0+2) - E(N0) - E(N0+4) = -4g + 0 + 4g  = 0
+#     delta2n(Z, N0-2) = 2*E(N0-2) - E(N0-4) - E(N0) = 0             = 0
+#
+# The neutron kink depends only on N and the proton kink only on Z, so the two
+# injected features do not contaminate each other's indicator: delta2n sees only
+# g_n and delta2p sees only g_p.
+#
+# The chart is a rectangle rather than a valley band on purpose. Every Z chain
+# then holds the whole neutron window and every N chain the whole proton window,
+# so the support rule masks *every* occurrence of the injected closure instead of
+# leaving edge chains that still carry it.
+
+SYNTHETIC_SHELL_CHART_POLICY = "ez-b003-synthetic-shell-chart-v1"
+SHELL_CHART_Z_MIN = 24
+SHELL_CHART_Z_MAX = 44
+SHELL_CHART_N_MIN = 38
+SHELL_CHART_N_MAX = 58
+
+# Both closures are members of the EZ-B003 availability set, so the committed
+# fixture exercises the real closure list rather than an invented coordinate.
+INJECTED_NEUTRON_CLOSURE = 50
+INJECTED_PROTON_CLOSURE = 28
+
+# Gap sizes in MeV. The indicator spike is twice the gap, which puts the injected
+# neutron feature at +3.0 MeV against a smooth background of well under 1 MeV.
+INJECTED_NEUTRON_GAP_MeV = 1.5
+INJECTED_PROTON_GAP_MeV = 1.2
+
+SHELL_CHART_ESTIMATED_MODULUS = 41
+
+
+def injected_shell_term_MeV(
+    z: int,
+    n: int,
+    *,
+    neutron_closure: int = INJECTED_NEUTRON_CLOSURE,
+    proton_closure: int = INJECTED_PROTON_CLOSURE,
+    neutron_gap_MeV: float = INJECTED_NEUTRON_GAP_MeV,
+    proton_gap_MeV: float = INJECTED_PROTON_GAP_MeV,
+) -> float:
+    """The injected binding-energy kinks, in MeV (negative above each closure)."""
+    return -neutron_gap_MeV * max(0, n - neutron_closure) - proton_gap_MeV * max(
+        0, z - proton_closure
+    )
+
+
+def synthetic_shell_chart_rows(
+    *,
+    z_min: int = SHELL_CHART_Z_MIN,
+    z_max: int = SHELL_CHART_Z_MAX,
+    n_min: int = SHELL_CHART_N_MIN,
+    n_max: int = SHELL_CHART_N_MAX,
+    neutron_closure: int = INJECTED_NEUTRON_CLOSURE,
+    proton_closure: int = INJECTED_PROTON_CLOSURE,
+) -> list[tuple[int, int, str, float, float, bool]]:
+    """Rows of the synthetic shell chart, in AME mass-table row order."""
+    rows = []
+    for z in range(z_min, z_max + 1):
+        for n in range(n_min, n_max + 1):
+            noise = synthetic_shell_residual_MeV(z, n) + injected_shell_term_MeV(
+                z, n, neutron_closure=neutron_closure, proton_closure=proton_closure
+            )
+            estimated = (z + n) % SHELL_CHART_ESTIMATED_MODULUS == 0
+            rows.append((z, n, "X", toy_mass_excess(z, n, noise=noise), 11.0 + (z % 2), estimated))
+    return rows
+
+
+def write_synthetic_shell_chart(path: Path) -> Path:
+    """Write the synthetic shell chart as an AME2020-format mass table."""
+    return write_ame_table(path, synthetic_shell_chart_rows(), AME2020)
+
+
+def small_synthetic_shell_chart_rows() -> list[tuple[int, int, str, float, float, bool]]:
+    """A cheaper shell chart for unit tests: one closure, fewer chains."""
+    return synthetic_shell_chart_rows(z_min=26, z_max=32, n_min=42, n_max=58)
+
+
+def write_small_synthetic_shell_chart(path: Path) -> Path:
+    return write_ame_table(path, small_synthetic_shell_chart_rows(), AME2020)
+
+
+# The same surface with both kinks moved off the chart, which leaves the smooth
+# background bit-for-bit untouched. This is the control: whatever the benchmark
+# reports here is what it reports when there is no shell structure to find.
+UNREACHABLE_CLOSURE = 10_000
+
+
+def unkinked_synthetic_shell_chart_rows() -> list[tuple[int, int, str, float, float, bool]]:
+    return synthetic_shell_chart_rows(
+        neutron_closure=UNREACHABLE_CLOSURE, proton_closure=UNREACHABLE_CLOSURE
+    )
+
+
+def write_unkinked_synthetic_shell_chart(path: Path) -> Path:
+    """The control chart: identical smooth surface, no injected discontinuity."""
+    return write_ame_table(path, unkinked_synthetic_shell_chart_rows(), AME2020)
+
+
 def synthetic_editions(tmp_path: Path) -> tuple[Path, Path]:
     old_rows = []
     later_rows = []

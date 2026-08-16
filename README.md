@@ -120,6 +120,43 @@ depth, by region, and by model, with the worst region named. EZ-B002 v1 declares
 no accuracy pass/fail threshold: it is characterization. Details in
 `docs/benchmarks/ez-b002.md`.
 
+## EZ-B003 — Hidden Shell Rediscovery Challenge
+
+EZ-B002 hides a rectangle. EZ-B003 hides the neighborhood of a *known shell
+closure* — `N in {N0-1, N0, N0+1}` or `Z in {Z0-1, Z0, Z0+1}` — and asks whether
+the reconstructed mass surface still shows the shell-gap structure that is
+actually there.
+
+```bash
+elementzero benchmark b003-select-challenges --source snapshot.mas --edition AME2020 --output challenges.json
+elementzero benchmark b003-seal-experiment --source snapshot.mas --edition AME2020 --challenges challenges.json --dir experiments/EZ-B003-v1/ --scope synthetic
+elementzero benchmark b003-score-experiment --source snapshot.mas --edition AME2020 --dir experiments/EZ-B003-v1/
+```
+
+The single-closure stages `b003-prepare`, `b003-freeze`, `b003-predict`,
+`b003-finalize`, and `b003-score` mirror the same five-process flow.
+
+Masses are turned into `S2n`/`S2p` and then into the shell-gap indicators
+`delta2n`/`delta2p`, and the withheld closure is ranked inside a preregistered,
+parity-matched search window. Every derived value is marked `derived` and is never
+counted as independent evidence. A `discovery` feature profile is firewalled
+against magic-number and shell-distance features, and it is never pooled with an
+`accuracy` profile. Closures the support rule cannot carry are reported
+`NOT_EVALUABLE` with reasons rather than dropped.
+
+Unlike EZ-B002, EZ-B003 has a preregistered rediscovery criterion. Its thresholds
+were calibrated on synthetic mechanics only and are frozen, hashed, by the seal
+phase before any closure truth is read.
+
+```text
+EZ-B003 measures rediscovery of KNOWN shell structure under controlled masking.
+A met criterion is NOT proof of a new magic number, and NOT evidence that a
+predicted Z = 154 shell gap or an island of stability exists.
+```
+
+No closure of an evaluated mass table has been scored yet. Details in
+`docs/benchmarks/ez-b003.md`.
+
 ## Architecture rule
 
 ```text
