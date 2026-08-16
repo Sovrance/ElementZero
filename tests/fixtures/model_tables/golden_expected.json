@@ -1,0 +1,82 @@
+{
+ "BSKG3": {
+  "golden_file": "tests/fixtures/model_tables/bskg03_golden.txt",
+  "rows": {
+   "Z50-N70": {
+    "A": 120,
+    "N": 70,
+    "Z": 50,
+    "experimental_minus_calculated_keV": -350.0,
+    "mass_excess_keV": -90750.0
+   },
+   "Z72-N125": {
+    "A": 197,
+    "N": 125,
+    "Z": 72,
+    "experimental_minus_calculated_keV": null,
+    "mass_excess_keV": -2280.0
+   },
+   "Z8-N8": {
+    "A": 16,
+    "N": 8,
+    "Z": 8,
+    "experimental_minus_calculated_keV": -230.0,
+    "mass_excess_keV": -4510.0
+   },
+   "Z82-N126": {
+    "A": 208,
+    "N": 126,
+    "Z": 82,
+    "experimental_minus_calculated_keV": 1640.0,
+    "mass_excess_keV": -23390.0
+   },
+   "Z92-N126": {
+    "A": 218,
+    "N": 126,
+    "Z": 92,
+    "experimental_minus_calculated_keV": 2620.0,
+    "mass_excess_keV": 19270.0
+   }
+  }
+ },
+ "FRDM95": {
+  "golden_file": "tests/fixtures/model_tables/mass-frdm95_golden.txt",
+  "rows": {
+   "Z50-N70": {
+    "A": 120,
+    "N": 70,
+    "Z": 50,
+    "experimental_minus_calculated_keV": -185.0,
+    "mass_excess_keV": -90920.0
+   },
+   "Z72-N125": {
+    "A": 197,
+    "N": 125,
+    "Z": 72,
+    "experimental_minus_calculated_keV": null,
+    "mass_excess_keV": -2000.0
+   },
+   "Z8-N8": {
+    "A": 16,
+    "N": 8,
+    "Z": 8,
+    "experimental_minus_calculated_keV": 103.0,
+    "mass_excess_keV": -4840.0
+   },
+   "Z82-N126": {
+    "A": 208,
+    "N": 126,
+    "Z": 82,
+    "experimental_minus_calculated_keV": -598.0,
+    "mass_excess_keV": -21150.0
+   },
+   "Z92-N126": {
+    "A": 218,
+    "N": 126,
+    "Z": 92,
+    "experimental_minus_calculated_keV": 1053.0,
+    "mass_excess_keV": 20870.0
+   }
+  }
+ }
+}

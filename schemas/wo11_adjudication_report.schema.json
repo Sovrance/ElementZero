@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero WO-11 Adjudication Report",
+  "type": "object",
+  "required": [
+    "work_order",
+    "input_release",
+    "artifact_inventory_hash",
+    "replay_status",
+    "benchmark_control_status",
+    "failures",
+    "model_readiness_verdict",
+    "wo12_prerequisites"
+  ],
+  "properties": {
+    "work_order": {
+      "const": "WO-11"
+    },
+    "input_release": {
+      "type": "string"
+    },
+    "artifact_inventory_hash": {
+      "type": "string"
+    },
+    "replay_status": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "benchmark_control_status": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "INDETERMINATE"
+      ]
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "model_readiness_verdict": {
+      "type": "string",
+      "enum": [
+        "FRONTIER_MODEL_RERUN_JUSTIFIED",
+        "FRONTIER_MODEL_RERUN_NOT_YET_JUSTIFIED",
+        "BENCHMARK_REPAIR_REQUIRED",
+        "INFRASTRUCTURE_REPAIR_REQUIRED"
+      ]
+    },
+    "wo12_prerequisites": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -19,6 +19,9 @@ def test_schemas_are_readable_json():
         "element_progress_event.schema.json",
         "element_table_state.schema.json",
         "visual_render_bundle.schema.json",
+        "wo11_failure_record.schema.json",
+        "wo11_adjudication_report.schema.json",
+        "frontier_model_candidate.schema.json",
     ]
     for name in names:
         payload = json.loads((SCHEMAS / name).read_text(encoding="utf-8"))
