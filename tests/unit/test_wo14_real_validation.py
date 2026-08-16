@@ -65,10 +65,14 @@ def test_wo13_input_hashes_unchanged():
 
 
 def test_wo12_protocol_and_registry_hashes_unchanged():
-    from elementzero.models.federation.registry import build_default_federation
-
-    registry = build_default_federation(repo_root=REPO_ROOT)
-    assert registry.manifest()["registry_hash"] == WO12_REGISTRY_HASH
+    # The committed WO-12 manifest is the frozen registry record; it must
+    # still carry the pinned hash (CI-safe, no raw table needed).
+    manifest = json.loads(
+        (
+            REPO_ROOT / "reports/model_federation/wo12/federation_manifest.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["registry_hash"] == WO12_REGISTRY_HASH
     for experiment_id in ("EZ-B002-v2", "EZ-B003-v2"):
         protocol = json.loads(
             (REPO_ROOT / "experiments" / experiment_id / "PROTOCOL.json").read_text(
@@ -76,6 +80,15 @@ def test_wo12_protocol_and_registry_hashes_unchanged():
             )
         )
         assert protocol["protocol_hash"] == WO12_PROTOCOL_HASH
+    # With the fetched raw tables present (local runs, full qualification
+    # jobs), the LIVE registry must also still build to the frozen hash —
+    # the WO-14 seal path refuses to run otherwise.
+    tables = REPO_ROOT / "data" / "model_tables"
+    if (tables / "bskg03.dat").is_file() and (tables / "mass-frdm95.dat").is_file():
+        from elementzero.models.federation.registry import build_default_federation
+
+        registry = build_default_federation(repo_root=REPO_ROOT)
+        assert registry.manifest()["registry_hash"] == WO12_REGISTRY_HASH
 
 
 # --------------------------------------------------------------------------- #
