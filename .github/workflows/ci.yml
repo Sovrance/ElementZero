@@ -5,6 +5,9 @@ on:
     branches: [main, "cursor/**"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -25,8 +28,7 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip
       - run: python tools/ensure_atlas_pir.py
-      - run: python -m pip install numpy scipy scikit-learn pytest
-      - run: python -m pip install -e . --no-deps
+      - run: python -m pip install -e '.[dev]'
       - run: python -m pytest -q tests/unit
 
   atlas-contract:
@@ -38,8 +40,7 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip
       - run: python tools/ensure_atlas_pir.py
-      - run: python -m pip install numpy scipy scikit-learn pytest
-      - run: python -m pip install -e . --no-deps
+      - run: python -m pip install -e '.[dev]'
       - run: python -m pytest -q tests/unit/test_atlas_contract.py tests/unit/test_import_firewall.py tests/unit/test_pin.py
 
   leakage:
@@ -51,8 +52,7 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip
       - run: python tools/ensure_atlas_pir.py
-      - run: python -m pip install numpy scipy scikit-learn pytest
-      - run: python -m pip install -e . --no-deps
+      - run: python -m pip install -e '.[dev]'
       - run: python -m pytest -q tests/leakage
 
   synthetic-b001:
@@ -64,8 +64,7 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip
       - run: python tools/ensure_atlas_pir.py
-      - run: python -m pip install numpy scipy scikit-learn pytest
-      - run: python -m pip install -e . --no-deps
+      - run: python -m pip install -e '.[dev]'
       - run: python -m pytest -q tests/integration/test_synthetic_b001.py
 
   reproducibility:
@@ -77,8 +76,7 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip
       - run: python tools/ensure_atlas_pir.py
-      - run: python -m pip install numpy scipy scikit-learn pytest
-      - run: python -m pip install -e . --no-deps
+      - run: python -m pip install -e '.[dev]'
       - run: python -m pytest -q tests/integration/test_reproducibility.py
 
   schema-validation:
@@ -90,3 +88,21 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install pytest
       - run: python -m pytest -q tests/unit/test_schemas.py
+
+  visual-table:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: mkdir -p .artifacts/tests
+      - run: python -m pytest -q --junitxml=.artifacts/tests/junit.xml tests/unit/test_visual_metadata.py tests/unit/test_visual_layouts.py tests/unit/test_visual_event_ingest.py tests/unit/test_visual_aggregate.py tests/unit/test_visual_render_svg.py tests/unit/test_visual_readme.py tests/integration/test_visual_from_synthetic_b001.py tests/integration/test_visual_from_ci_artifacts.py
+      - run: python -m elementzero visual build --input-root . --layout extended_200_project_v1 --output-root reports/visuals --no-update-readme
+      - uses: actions/upload-artifact@v4
+        with:
+          name: elementzero-visual-table
+          path: reports/visuals/

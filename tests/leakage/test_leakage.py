@@ -36,7 +36,6 @@ def test_truth_field_in_target_manifest_is_rejected(tmp_path, synthetic_sources)
     with pytest.raises(LeakageError):
         load_targets(bad)
 
-
 def test_held_out_nuclide_in_training_ids_is_rejected(synthetic_sources, tmp_path):
     old, later = synthetic_sources
     prepare_targets(
@@ -57,7 +56,6 @@ def test_held_out_nuclide_in_training_ids_is_rejected(synthetic_sources, tmp_pat
     bad = KnowledgeFreeze.from_dict(mutated)
     with pytest.raises(LeakageError):
         assert_holdout_disjoint(bad, ["Z18-N19"])
-
 
 def test_truth_source_hash_allowed_by_freeze_is_rejected(tmp_path, synthetic_sources):
     old, later = synthetic_sources
@@ -90,7 +88,6 @@ def test_truth_source_hash_allowed_by_freeze_is_rejected(tmp_path, synthetic_sou
             out_dir=tmp_path / "score",
         )
 
-
 def test_training_digest_change_is_rejected(tmp_path, synthetic_sources):
     old, later = synthetic_sources
     prepare_targets(
@@ -107,7 +104,6 @@ def test_training_digest_change_is_rejected(tmp_path, synthetic_sources):
     )
     with pytest.raises(LeakageError):
         assert_training_digest(freeze, ["Z1-N1"])
-
 
 def test_prediction_modified_after_finalization_is_rejected(tmp_path, synthetic_sources):
     old, later = synthetic_sources
@@ -137,7 +133,6 @@ def test_prediction_modified_after_finalization_is_rejected(tmp_path, synthetic_
     (run_dir / "predictions.json").write_text('[{"tampered": true}]\n', encoding="utf-8")
     with pytest.raises(LeakageError):
         score_run(run_dir=run_dir, truth_source=later, truth_edition_id="AME2020", out_dir=tmp_path / "s")
-
 
 def test_score_without_a_persisted_finalization_fact_is_rejected(tmp_path, synthetic_sources):
     old, later = synthetic_sources
@@ -182,7 +177,6 @@ def test_score_without_a_persisted_finalization_fact_is_rejected(tmp_path, synth
             out_dir=tmp_path / "score",
         )
 
-
 def test_finalization_fact_that_does_not_match_the_marker_is_rejected(
     tmp_path, synthetic_sources
 ):
@@ -220,7 +214,6 @@ def test_finalization_fact_that_does_not_match_the_marker_is_rejected(
             out_dir=tmp_path / "score",
         )
 
-
 def test_finalization_fact_carries_no_truth(tmp_path, synthetic_sources):
     from elementzero.data.observations import TRUTH_BEARING_FIELDS
 
@@ -257,8 +250,10 @@ def test_finalization_fact_carries_no_truth(tmp_path, synthetic_sources):
     assert "nuclear_benchmark_validation" not in predict_kinds
 
 
+
 def test_mutable_and_unresolved_atlas_refs_are_rejected():
     with pytest.raises(AtlasContractError):
         validate_atlas_ref("main")
     with pytest.raises(AtlasContractError):
         validate_atlas_ref(None)
+

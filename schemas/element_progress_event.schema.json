@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero Visual Element Progress Event",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_time",
+    "project_version",
+    "source_kind",
+    "source_path",
+    "source_hash",
+    "element_Z",
+    "status"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "TEST_SUITE_PASS",
+        "TEST_SUITE_FAIL",
+        "DATA_INGESTED",
+        "HISTORICAL_TARGET_CREATED",
+        "HISTORICAL_PREDICTION_SEALED",
+        "HISTORICAL_VALIDATION_SCORED",
+        "REGION_TARGET_CREATED",
+        "REGION_VALIDATION_SCORED",
+        "SHELL_TARGET_CREATED",
+        "SHELL_VALIDATION_SCORED",
+        "FRONTIER_PREDICTION_CREATED",
+        "CANDIDATE_ISLAND_MARKED"
+      ]
+    },
+    "event_time": {
+      "type": "string"
+    },
+    "project_version": {
+      "type": "string"
+    },
+    "source_kind": {
+      "type": "string"
+    },
+    "source_path": {
+      "type": "string"
+    },
+    "source_hash": {
+      "type": "string"
+    },
+    "benchmark_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "benchmark_stage": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "model_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "element_Z": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "nuclide_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

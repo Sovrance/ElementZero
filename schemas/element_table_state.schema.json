@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero Visual Element Table State",
+  "type": "object",
+  "required": [
+    "project",
+    "generated_at",
+    "layout_profile",
+    "input_hashes",
+    "test_health",
+    "legend",
+    "elements"
+  ],
+  "properties": {
+    "project": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "layout_profile": {
+      "type": "string"
+    },
+    "input_hashes": {
+      "type": "object"
+    },
+    "test_health": {
+      "type": "object",
+      "required": [
+        "overall",
+        "unit",
+        "integration",
+        "leakage"
+      ],
+      "properties": {
+        "overall": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "integration": {
+          "type": "string"
+        },
+        "leakage": {
+          "type": "string"
+        },
+        "benchmark": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "legend": {
+      "type": "object"
+    },
+    "elements": {
+      "type": "array",
+      "minItems": 200,
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "required": [
+          "Z",
+          "symbol",
+          "name",
+          "known_status",
+          "layout_profile",
+          "row",
+          "column",
+          "project_primary_stage",
+          "badges",
+          "counts",
+          "last_event_time",
+          "contributing_sources",
+          "health"
+        ],
+        "properties": {
+          "Z": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "known_status": {
+            "type": "string",
+            "enum": [
+              "known_element",
+              "unknown_element"
+            ]
+          },
+          "layout_profile": {
+            "type": "string"
+          },
+          "row": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "project_primary_stage": {
+            "type": "string",
+            "enum": [
+              "not_touched",
+              "data_ingested",
+              "benchmark_targeted",
+              "historically_validated",
+              "geographic_holdout_validated",
+              "shell_challenge_participant",
+              "shell_rediscovery_validated",
+              "frontier_predicted",
+              "candidate_island_focus"
+            ]
+          },
+          "badges": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "counts": {
+            "type": "object"
+          },
+          "last_event_time": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contributing_sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "health": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

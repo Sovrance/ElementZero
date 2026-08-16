@@ -13,14 +13,15 @@ protocol.
 ```bash
 python -m pip install --upgrade pip
 python tools/ensure_atlas_pir.py
-python -m pip install numpy scipy scikit-learn pytest ruff
-python -m pip install -e . --no-deps
+python -m pip install -e '.[dev]'
 ```
 
 `tools/ensure_atlas_pir.py` clones the immutable SHA in `atlas.lock.json`.
 Atlas at the reviewed baseline is not yet an installable package; the tool
 writes the recommended `sovrance-atlas-pir` packaging overlay into the clone
-only. Do not copy `pir/` into this repository. Do not depend on Atlas `main`.
+only. Required `pip install -e '.[dev]'` dependencies do not fetch that raw
+git SHA (the Atlas pin lives under the optional `[atlas]` extra). Do not copy
+`pir/` into this repository. Do not depend on Atlas `main`.
 
 ## EZ-B001
 
@@ -162,6 +163,51 @@ a smooth interpolator does to a kink. The thresholds stay where they were frozen
 
 No closure of an evaluated mass table has been scored yet. Details in
 `docs/benchmarks/ez-b003.md`.
+
+## Visual element table
+
+The progress table is generated from tests and benchmark artifacts, not hand-edited tiles.
+`elementzero visual build` replaces the snapshot below whenever the derived values change.
+
+```bash
+elementzero visual build --input-root . --layout extended_200_project_v1 --output-root reports/visuals/
+```
+
+Outputs: `element_progress_events.jsonl`, `element_table_state.json`, `element_table.html`, `element_table.svg`, `visual_render_bundle.json`.
+
+<!-- ELEMENTZERO_VISUAL_TABLE_BEGIN -->
+![ElementZero visual element table](docs/visuals/element_table.svg)
+
+| Check | Status |
+| --- | --- |
+| Unit | UNKNOWN |
+| Integration | UNKNOWN |
+| Leakage | UNKNOWN |
+| Overall | UNKNOWN |
+| Benchmark | UNKNOWN |
+
+| Primary stage | Elements |
+| --- | --- |
+| Not touched | 200 |
+| Data ingested | 0 |
+| Benchmark targeted | 0 |
+| Historically validated | 0 |
+| Geographic holdout validated | 0 |
+| Shell challenge participant | 0 |
+| Shell rediscovery validated | 0 |
+| Frontier predicted | 0 |
+| Candidate island focus | 0 |
+
+| Field | Value |
+| --- | --- |
+| Layout | `extended_200_project_v1` |
+| Events | 0 |
+| Generator | `visual-table-v0.1` |
+| State hash | `4b00cf68604c0e66` |
+| SVG hash | `f655cf24abc8e697` |
+
+Elements 119-200 are project placeholders, not official IUPAC placement. Prediction-only runs are never shown as validated. Visual states summarize project artifacts and do not constitute experimental discovery claims.
+<!-- ELEMENTZERO_VISUAL_TABLE_END -->
 
 ## Architecture rule
 
