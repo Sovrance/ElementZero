@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero WO-14 Status",
+  "type": "object",
+  "required": [
+    "work_order",
+    "status",
+    "b002_blind_status",
+    "b002_recon_status",
+    "b003_blind_mass_status",
+    "b003_blind_edge_status",
+    "b003_full_shell_blind_status",
+    "b003_recon_status",
+    "next_gate"
+  ],
+  "properties": {
+    "work_order": {
+      "const": "WO-14"
+    },
+    "status": {
+      "enum": [
+        "ENGINEERING_PASS_SCIENTIFIC_PASS",
+        "ENGINEERING_PASS_SCIENTIFIC_MIXED",
+        "ENGINEERING_PASS_SCIENTIFIC_NOT_MET",
+        "ENGINEERING_PASS_GATE_NOT_EVALUABLE",
+        "INPUT_INTEGRITY_FAILURE",
+        "CLAIM_INTEGRITY_FAILURE",
+        "INFRASTRUCTURE_FAILURE"
+      ]
+    },
+    "b002_blind_status": {
+      "type": "string"
+    },
+    "b002_recon_status": {
+      "type": "string"
+    },
+    "b003_blind_mass_status": {
+      "type": "string"
+    },
+    "b003_blind_edge_status": {
+      "type": "string"
+    },
+    "b003_full_shell_blind_status": {
+      "type": "string"
+    },
+    "b003_recon_status": {
+      "type": "string"
+    },
+    "next_gate": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

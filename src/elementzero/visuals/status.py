@@ -44,6 +44,10 @@ EVENT_TO_BADGE = {
     "CANDIDATE_ISLAND_MARKED": "I",
     # WO-13: reconstruction runs earn a badge, never a stage.
     "REAL_RECONSTRUCTION_SCORED": "R",
+    # WO-14: control-blind and historical-blind-edge evidence earn badges;
+    # stage promotion still requires the claim-checked blind path below.
+    "REAL_CONTROL_BLIND_SCORED": "CB",
+    "REAL_HISTORICAL_BLIND_EDGE_SCORED": "HB",
 }
 
 # WO-13 claim firewall: a blind real-data validation event may promote a
@@ -64,6 +68,11 @@ def claim_checked_stage_types(
     """The stage-granting event types one event contributes (claim-aware)."""
     if event_type == "REAL_RECONSTRUCTION_SCORED":
         return []
+    # WO-14: control-only and edge-only blind evidence never promotes a
+    # primary validation stage — badge only. Shell promotion additionally
+    # requires the full-shell blind criterion to have been met.
+    if event_type in ("REAL_CONTROL_BLIND_SCORED", "REAL_HISTORICAL_BLIND_EDGE_SCORED"):
+        return []
     if event_type == "REAL_BLIND_VALIDATION_SCORED":
         data = payload or {}
         if data.get("blind_gate_passed") is not True:
@@ -71,6 +80,10 @@ def claim_checked_stage_types(
         if data.get("claim_type") not in ALLOWED_BLIND_STAGE_CLAIMS:
             return []
         family = str(benchmark_id or "").split("-v")[0]
+        if family == "EZ-B003" and (
+            data.get("blind_gate_status") != "FULL_SHELL_BLIND_CRITERION_MET"
+        ):
+            return []
         stage_event = BLIND_VALIDATION_STAGE_EVENTS.get(family)
         return [stage_event] if stage_event else []
     return [event_type]

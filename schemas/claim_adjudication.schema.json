@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero Claim Adjudication",
+  "type": "object",
+  "required": [
+    "experiment_id",
+    "run_id",
+    "benchmark_id",
+    "claim_track",
+    "prediction_seal_hash",
+    "eligible_model_ids",
+    "excluded_model_ids",
+    "physics_independence_groups",
+    "claim_type",
+    "scientific_scope",
+    "inherited_criterion_status",
+    "blind_gate_status",
+    "visual_stage_permission",
+    "next_gate"
+  ],
+  "properties": {
+    "experiment_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "benchmark_id": {
+      "type": "string"
+    },
+    "claim_track": {
+      "enum": [
+        "BLIND",
+        "RECONSTRUCTION"
+      ]
+    },
+    "prediction_seal_hash": {
+      "type": "string"
+    },
+    "eligible_model_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "excluded_model_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "physics_independence_groups": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "claim_type": {
+      "type": "string"
+    },
+    "scientific_scope": {
+      "enum": [
+        "CONTROL_BLIND_GEOGRAPHIC",
+        "RECONSTRUCTION_GEOGRAPHIC",
+        "PHYSICS_BLIND_MASS_EDGE",
+        "PHYSICS_BLIND_EDGE_STRUCTURE",
+        "FULL_BLIND_SHELL_REDISCOVERY",
+        "RECONSTRUCTION_SHELL_STRUCTURE"
+      ]
+    },
+    "inherited_criterion_status": {
+      "type": "string"
+    },
+    "blind_gate_status": {
+      "type": "string"
+    },
+    "visual_stage_permission": {
+      "type": "string"
+    },
+    "next_gate": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

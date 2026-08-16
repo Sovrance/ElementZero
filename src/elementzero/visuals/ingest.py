@@ -40,6 +40,15 @@ SKIP_ROOT_PREFIXES = ("tests", "docs", "scaffold", "reference")
 UNSPECIFIED_TIME = "1970-01-01T00:00:00Z"
 PROJECT_SUITE_Z = 1
 
+# WO-14 visual claim firewall: a directory holding this marker is a sealed
+# real-validation run tree. Its raw benchmark artifacts (targets.json,
+# score_report.json, ...) must never reach the generic extraction hooks —
+# those grant validated stages, and real control-blind/reconstruction
+# evidence is badge-only. The claim-checked events for these trees are the
+# committed *_progress_events.jsonl files, which are ingested verbatim.
+REAL_VALIDATION_MARKER = "wo14_run_state.json"
+GENERATED_EVENTS_NAME = "element_progress_events.jsonl"
+
 
 def _read_json(path: Path) -> Any:
     try:
@@ -563,9 +572,28 @@ def extract_events(input_root: str | Path) -> tuple[list[ProgressEvent], dict[st
                 report_consumed = True
                 break
 
+    real_validation_roots = [
+        marker.parent.resolve() for marker in root.rglob(REAL_VALIDATION_MARKER)
+    ]
+
     for path in _iter_files(root):
         name = path.name
         rel = _rel(root, path)
+        if name.endswith("_progress_events.jsonl") and name != GENERATED_EVENTS_NAME:
+            # Committed claim-checked events (WO-13 eligibility, WO-14 real
+            # validation): each line is re-validated on read.
+            claim_events = read_events_jsonl(path)
+            events.extend(claim_events)
+            if claim_events:
+                input_hashes[rel] = sha256_file(path)
+            continue
+        if any(
+            real_root in path.resolve().parents or path.resolve().parent == real_root
+            for real_root in real_validation_roots
+        ):
+            # Sealed real-validation tree: represented only by its committed
+            # claim-checked events, never by generic benchmark hooks.
+            continue
         if name.endswith((".txt", ".mas03", ".mas12", ".mas16", ".mas20")) and _edition_from_name(path):
             ame_events = extract_ame_events(path, root=root)
             if ame_events:

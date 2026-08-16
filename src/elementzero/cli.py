@@ -457,6 +457,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     wo13.add_argument("--output", default=None, help="defaults to reports/eligibility/wo13")
     wo13.add_argument("--workspace", default=None, help="scratch dir (default: temp dir)")
+
+    real = sub.add_parser(
+        "real-validation", help="WO-14 evaluated-data v2 validation"
+    )
+    rsub = real.add_subparsers(dest="real_command", required=True)
+    seal = rsub.add_parser(
+        "seal", help="verify inputs and seal predictions; reads no truth"
+    )
+    seal.add_argument(
+        "--experiment",
+        default=None,
+        help="one track only (default: all four)",
+    )
+    record = rsub.add_parser(
+        "record-seal-commit",
+        help="record the git commit that contains every seal",
+    )
+    record.add_argument("--commit", required=True)
+    rsub.add_parser(
+        "score", help="unlock truth (hash-verified), score, adjudicate"
+    )
+    rsub.add_parser(
+        "report", help="build the committed WO-14 report bundle"
+    )
+    rsub.add_parser("status", help="print the committed WO-14 status")
     return parser
 
 
@@ -654,6 +679,45 @@ def _eligibility(args: argparse.Namespace) -> int:
     raise SystemExit(f"unknown eligibility command {cmd!r}")
 
 
+def _real_validation(args: argparse.Namespace) -> int:
+    from elementzero.atlas_pin import REPO_ROOT
+    from elementzero.evidence.ledger import read_json
+    from elementzero.real_validation import REPORTS_RELPATH as WO14_REPORTS
+    from elementzero.real_validation.report import (
+        WO14_EXPERIMENTS,
+        build_wo14_report,
+        record_seal_commit_wo14,
+        score_wo14,
+        seal_wo14,
+    )
+
+    cmd = args.real_command
+    if cmd == "seal":
+        experiments = (
+            (args.experiment,) if args.experiment else WO14_EXPERIMENTS
+        )
+        result = seal_wo14(experiments=experiments)
+        print(canonical_json(result["seals"]))
+        return 0
+    if cmd == "record-seal-commit":
+        result = record_seal_commit_wo14(commit=args.commit)
+        print(canonical_json(result))
+        return 0
+    if cmd == "score":
+        result = score_wo14()
+        print(canonical_json(result))
+        return 0
+    if cmd == "report":
+        result = build_wo14_report()
+        print(canonical_json(result["status"]))
+        return 0
+    if cmd == "status":
+        status = read_json(REPO_ROOT / WO14_REPORTS / "wo14_status.json")
+        print(canonical_json(status))
+        return 0
+    raise SystemExit(f"unknown real-validation command {cmd!r}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -682,10 +746,12 @@ def main(argv: list[str] | None = None) -> int:
         return _adjudicate(args)
     if args.command == "eligibility":
         return _eligibility(args)
+    if args.command == "real-validation":
+        return _real_validation(args)
     if args.command != "benchmark":
         parser.error(
-            "only the benchmark, report, visual, adjudicate, and eligibility "
-            "commands are implemented"
+            "only the benchmark, report, visual, adjudicate, eligibility, "
+            "and real-validation commands are implemented"
         )
     cmd = args.benchmark_command
     if cmd == "prepare-targets":

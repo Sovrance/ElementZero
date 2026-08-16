@@ -22,6 +22,8 @@ BADGE_LABELS = {
     "F": "frontier prediction",
     "I": "island focus",
     "R": "reconstruction reference (never blind validation)",
+    "CB": "control-blind real validation (statistical baselines only)",
+    "HB": "historical-blind edge evidence (never full shell rediscovery)",
 }
 
 HEALTH_LABELS = {
