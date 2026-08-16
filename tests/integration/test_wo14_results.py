@@ -74,6 +74,8 @@ def test_recon_predictions_still_sealed():
 
 
 def test_seal_commit_recorded_before_scoring():
+    import subprocess
+
     for tree in ALL_TRACKS:
         seal_record = _load(tree / "wo14_seal_record.json")
         commit = seal_record["seal_commit"]
@@ -83,6 +85,24 @@ def test_seal_commit_recorded_before_scoring():
         assert (
             unlock["verified"]["prediction_seal_hash"]
             == _load(tree / "wo14_run_state.json")["prediction_seal_hash"]
+        )
+        # With full git history available (local clones; shallow CI
+        # checkouts lack the older commits), the recorded commit must be a
+        # reachable ancestor carrying the exact finalized seal bytes.
+        exists = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "cat-file", "-e", f"{commit}^{{commit}}"],
+            check=False,
+            capture_output=True,
+        )
+        if exists.returncode != 0:
+            continue
+        from elementzero.real_validation.runs import _assert_seal_commit_valid
+
+        _assert_seal_commit_valid(
+            REPO_ROOT,
+            experiment_id=tree.name,
+            commit=commit,
+            seal_hash=_load(tree / "wo14_run_state.json")["prediction_seal_hash"],
         )
 
 

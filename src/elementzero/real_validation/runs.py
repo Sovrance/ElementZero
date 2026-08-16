@@ -383,7 +383,9 @@ def seal_b002_track(
     return {"experiment_id": experiment_id, "seal_hash": run.prediction_seal_hash}
 
 
-def _b002_track_unlock(root: Path, experiment_id: str, dest: Path) -> dict[str, Any]:
+def _b002_track_unlock(
+    root: Path, experiment_id: str, dest: Path, *, expected_seal_hash: str
+) -> dict[str, Any]:
     claim = _claim_manifest(root, experiment_id)
     sealed = read_json(dest / SEALED_PREDICTIONS_FILE)
     sealed_target_ids: list[str] = []
@@ -392,7 +394,11 @@ def _b002_track_unlock(root: Path, experiment_id: str, dest: Path) -> dict[str, 
         sealed_target_ids.extend(t["nuclide_id"] for t in targets["targets"])
     unlock = unlock_truth(
         seal_dir=dest,
-        expected_seal_hash=read_seal_hash(dest),
+        # The expected hash is the one finalization persisted in the run
+        # state — never re-read from the seal directory, or a post-
+        # finalization rewrite of both seal files would compare a tampered
+        # digest against itself.
+        expected_seal_hash=expected_seal_hash,
         eligibility_manifest_hash=_eligibility_hashes(root)[experiment_id],
         expected_eligibility_hash=claim["eligibility_manifest_hash"],
         threshold_hash=_threshold_hash(root, experiment_id),
@@ -449,7 +455,9 @@ def score_b002_track(
             f"{experiment_id} is {run.state}; scoring requires "
             "SEALED_COMMIT_RECORDED — commit the seal first"
         )
-    _b002_track_unlock(root, experiment_id, dest)
+    _b002_track_unlock(
+        root, experiment_id, dest, expected_seal_hash=run.prediction_seal_hash
+    )
     run.advance("TRUTH_UNLOCKED")
     scored = score_b002(
         source=source,
@@ -733,6 +741,48 @@ def finalize_run_state(
     return run.to_dict()
 
 
+def _assert_seal_commit_valid(
+    root: Path, *, experiment_id: str, commit: str, seal_hash: str
+) -> None:
+    """The recorded commit must exist, be an ancestor of HEAD, and carry
+    the finalized seal bytes — a name alone proves nothing."""
+    import hashlib
+    import subprocess
+
+    def _git(*args: str, capture: bool = False):
+        return subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=False,
+            capture_output=True,
+        )
+
+    if _git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+        raise ProtocolError(
+            f"{experiment_id}: {commit} is not a commit in this repository; "
+            "a seal commit must be a real, reachable commit"
+        )
+    if _git("merge-base", "--is-ancestor", commit, "HEAD").returncode != 0:
+        raise ProtocolError(
+            f"{experiment_id}: {commit} is not an ancestor of HEAD; the "
+            "seal commit must be part of the published history"
+        )
+    relpath = (
+        f"{RESULTS_DIRNAME}/{experiment_id}/{SEALED_PREDICTIONS_FILE}"
+    )
+    shown = _git("show", f"{commit}:{relpath}")
+    if shown.returncode != 0:
+        raise ProtocolError(
+            f"{experiment_id}: {commit} does not contain {relpath}; the "
+            "seal commit must carry the sealed predictions"
+        )
+    digest = hashlib.sha256(shown.stdout).hexdigest()
+    if digest != seal_hash:
+        raise ProtocolError(
+            f"{experiment_id}: the seal committed in {commit} hashes "
+            f"{digest}, not the finalized {seal_hash}"
+        )
+
+
 def record_seal_commit(
     *, root: str | Path | None = None, experiment_id: str, commit: str
 ) -> dict[str, Any]:
@@ -752,6 +802,12 @@ def record_seal_commit(
             f"{experiment_id} is {run.state}; recording a seal commit "
             "requires PREDICTIONS_FINALIZED"
         )
+    _assert_seal_commit_valid(
+        root,
+        experiment_id=experiment_id,
+        commit=commit,
+        seal_hash=run.prediction_seal_hash,
+    )
     run.advance("SEALED_COMMIT_RECORDED")
     record = read_json(dest / SEAL_RECORD_FILE)
     record["seal_commit"] = commit
@@ -912,7 +968,10 @@ def score_b003_blind(*, root: str | Path | None = None) -> dict[str, Any]:
     claim = _claim_manifest(root, B003_BLIND_ID)
     unlock = unlock_truth(
         seal_dir=dest,
-        expected_seal_hash=read_seal_hash(dest),
+        # Expected = the hash finalization persisted, never re-read from
+        # the seal directory (a rewrite of both seal files would otherwise
+        # compare a tampered digest against itself).
+        expected_seal_hash=run.prediction_seal_hash,
         eligibility_manifest_hash=_eligibility_hashes(root)[B003_BLIND_ID],
         expected_eligibility_hash=claim["eligibility_manifest_hash"],
         threshold_hash=_threshold_hash(root, B003_BLIND_ID),
@@ -1213,7 +1272,9 @@ def score_b003_recon(*, root: str | Path | None = None) -> dict[str, Any]:
         sealed_target_ids.extend(t["nuclide_id"] for t in targets["targets"])
     unlock = unlock_truth(
         seal_dir=dest,
-        expected_seal_hash=read_seal_hash(dest),
+        # Expected = the hash finalization persisted, never re-read from
+        # the seal directory.
+        expected_seal_hash=run.prediction_seal_hash,
         eligibility_manifest_hash=_eligibility_hashes(root)[experiment_id],
         expected_eligibility_hash=claim["eligibility_manifest_hash"],
         threshold_hash=_threshold_hash(root, experiment_id),
