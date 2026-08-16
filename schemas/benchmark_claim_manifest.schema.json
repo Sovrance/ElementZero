@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero Benchmark Claim Manifest",
+  "type": "object",
+  "required": [
+    "experiment_id",
+    "claim_track",
+    "allowed_claim_types",
+    "strict_gate",
+    "threshold_manifest_hash",
+    "eligibility_manifest_hash",
+    "protocol_qualified",
+    "federation_improvement_required"
+  ],
+  "properties": {
+    "experiment_id": {
+      "type": "string"
+    },
+    "claim_track": {
+      "enum": [
+        "BLIND",
+        "RECONSTRUCTION"
+      ]
+    },
+    "allowed_claim_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "strict_gate": {
+      "type": "boolean"
+    },
+    "threshold_manifest_hash": {
+      "type": "string"
+    },
+    "eligibility_manifest_hash": {
+      "type": "string"
+    },
+    "protocol_qualified": {
+      "type": "boolean"
+    },
+    "federation_improvement_required": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

@@ -21,6 +21,7 @@ BADGE_LABELS = {
     "S": "shell rediscovery",
     "F": "frontier prediction",
     "I": "island focus",
+    "R": "reconstruction reference (never blind validation)",
 }
 
 HEALTH_LABELS = {

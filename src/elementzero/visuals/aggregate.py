@@ -22,7 +22,11 @@ from elementzero.visuals.event_types import (
 )
 from elementzero.visuals.labels import BADGE_LABELS, STAGE_LABELS
 from elementzero.visuals.metadata import load_element_metadata, metadata_for, position_for
-from elementzero.visuals.status import badges_from_event_types, select_primary_stage
+from elementzero.visuals.status import (
+    badges_from_event_types,
+    claim_checked_stage_types,
+    select_primary_stage,
+)
 
 EMPTY_COUNTS = {
     "eligible_observation_count": 0,
@@ -146,6 +150,17 @@ def aggregate_events(
         pos = position_for(z, layout_profile)
         z_events = by_z.get(z, [])
         types = [event.event_type for event in z_events]
+        # WO-13 claim firewall: stage selection sees claim-checked types —
+        # a reconstruction run never upgrades a tile, and a blind real-data
+        # validation promotes only when its payload attests a passed blind
+        # gate with an allowed blind claim type.
+        stage_types: list[str] = []
+        for event in z_events:
+            stage_types.extend(
+                claim_checked_stage_types(
+                    event.event_type, event.payload, event.benchmark_id
+                )
+            )
         counts = dict(EMPTY_COUNTS)
         for event in z_events:
             field = COUNT_EVENTS.get(event.event_type)
@@ -171,7 +186,7 @@ def aggregate_events(
                 "layout_profile": layout_profile,
                 "row": pos["row"],
                 "column": pos["column"],
-                "project_primary_stage": select_primary_stage(types, z=z),
+                "project_primary_stage": select_primary_stage(stage_types, z=z),
                 "badges": badges_from_event_types(types),
                 "counts": counts,
                 "last_event_time": last_time,

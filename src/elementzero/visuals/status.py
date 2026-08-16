@@ -42,7 +42,38 @@ EVENT_TO_BADGE = {
     "SHELL_VALIDATION_SCORED": "S",
     "FRONTIER_PREDICTION_CREATED": "F",
     "CANDIDATE_ISLAND_MARKED": "I",
+    # WO-13: reconstruction runs earn a badge, never a stage.
+    "REAL_RECONSTRUCTION_SCORED": "R",
 }
+
+# WO-13 claim firewall: a blind real-data validation event may promote a
+# tile only when its payload attests blind_gate_passed with an allowed
+# blind claim type; the aggregator maps it onto the corresponding
+# validated-stage event type through this table. Reconstruction has no
+# entry on purpose.
+BLIND_VALIDATION_STAGE_EVENTS = {
+    "EZ-B002": "REGION_VALIDATION_SCORED",
+    "EZ-B003": "SHELL_VALIDATION_SCORED",
+}
+ALLOWED_BLIND_STAGE_CLAIMS = ("STRICT_BLIND", "HISTORICAL_BLIND")
+
+
+def claim_checked_stage_types(
+    event_type: str, payload: dict | None, benchmark_id: str | None
+) -> list[str]:
+    """The stage-granting event types one event contributes (claim-aware)."""
+    if event_type == "REAL_RECONSTRUCTION_SCORED":
+        return []
+    if event_type == "REAL_BLIND_VALIDATION_SCORED":
+        data = payload or {}
+        if data.get("blind_gate_passed") is not True:
+            return []
+        if data.get("claim_type") not in ALLOWED_BLIND_STAGE_CLAIMS:
+            return []
+        family = str(benchmark_id or "").split("-v")[0]
+        stage_event = BLIND_VALIDATION_STAGE_EVENTS.get(family)
+        return [stage_event] if stage_event else []
+    return [event_type]
 
 _PRIORITY_INDEX = {stage: index for index, stage in enumerate(STAGE_PRIORITY)}
 

@@ -1,0 +1,67 @@
+[
+  {
+    "A": 1,
+    "N": 0,
+    "Z": 1,
+    "element_symbol": "H",
+    "estimated_mass": false,
+    "estimated_uncertainty": false,
+    "ground_truth_eligible": true,
+    "mass_excess_keV": 7288.969,
+    "source_origin": "",
+    "source_record_status": "evaluated_non_estimated",
+    "uncertainty_keV": 0.001
+  },
+  {
+    "A": 4,
+    "N": 2,
+    "Z": 2,
+    "element_symbol": "He",
+    "estimated_mass": false,
+    "estimated_uncertainty": false,
+    "ground_truth_eligible": true,
+    "mass_excess_keV": 2424.911,
+    "source_origin": "",
+    "source_record_status": "evaluated_non_estimated",
+    "uncertainty_keV": 0.001
+  },
+  {
+    "A": 5,
+    "N": 1,
+    "Z": 4,
+    "element_symbol": "Be",
+    "estimated_mass": true,
+    "estimated_uncertainty": true,
+    "ground_truth_eligible": false,
+    "mass_excess_keV": 37996.0,
+    "source_origin": "x",
+    "source_record_status": "extrapolated",
+    "uncertainty_keV": 3996.0
+  },
+  {
+    "A": 120,
+    "N": 70,
+    "Z": 50,
+    "element_symbol": "Sn",
+    "estimated_mass": false,
+    "estimated_uncertainty": false,
+    "ground_truth_eligible": true,
+    "mass_excess_keV": -91103.293,
+    "source_origin": "",
+    "source_record_status": "evaluated_non_estimated",
+    "uncertainty_keV": 2.513
+  },
+  {
+    "A": 208,
+    "N": 126,
+    "Z": 82,
+    "element_symbol": "Pb",
+    "estimated_mass": false,
+    "estimated_uncertainty": false,
+    "ground_truth_eligible": true,
+    "mass_excess_keV": -21763.563,
+    "source_origin": "",
+    "source_record_status": "evaluated_non_estimated",
+    "uncertainty_keV": 2.909
+  }
+]

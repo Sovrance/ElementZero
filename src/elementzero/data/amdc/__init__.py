@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from elementzero.data.amdc.ame1995 import EDITION as AME1995
+from elementzero.data.amdc.ame1995 import load as load_ame1995
 from elementzero.data.amdc.ame2003 import EDITION as AME2003
 from elementzero.data.amdc.ame2003 import load as load_ame2003
 from elementzero.data.amdc.ame2012 import EDITION as AME2012
@@ -13,6 +15,7 @@ from elementzero.data.amdc.ame2020 import load as load_ame2020
 from elementzero.data.amdc.common import EditionSpec, format_ame_line, parse_ame_mass_table
 
 EDITIONS = {
+    "AME1995": (AME1995, load_ame1995),
     "AME2003": (AME2003, load_ame2003),
     "AME2012": (AME2012, load_ame2012),
     "AME2016": (AME2016, load_ame2016),
@@ -32,6 +35,7 @@ __all__ = [
     "EDITIONS",
     "EditionSpec",
     "format_ame_line",
+    "load_ame1995",
     "load_ame2003",
     "load_ame2012",
     "load_ame2016",
