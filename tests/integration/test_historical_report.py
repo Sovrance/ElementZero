@@ -34,7 +34,7 @@ from elementzero.experiments.aggregate import (
     DISTANCE_COLUMNS,
     MODEL_COLUMNS,
 )
-from elementzero.experiments.epochs import EPOCH_ORDER
+from elementzero.experiments.epochs import EPOCH_ORDER, epoch_for
 from elementzero.experiments.preregister import (
     METRIC_KEY_ALIASES,
     PRIMARY_METRICS,
@@ -71,6 +71,18 @@ def _series_is_committed() -> bool:
     return aggregate.is_file() and all(
         (REPO_ROOT / "experiments" / experiment_id / "model_comparison.json").is_file()
         for experiment_id in EPOCH_ORDER
+    )
+
+
+def _raw_tables_present() -> bool:
+    """The raw AME tables are licensed upstream files kept out of git."""
+    return all(
+        (REPO_ROOT / relpath).is_file()
+        for experiment_id in EPOCH_ORDER
+        for relpath in (
+            epoch_for(experiment_id).training_relpath,
+            epoch_for(experiment_id).truth_relpath,
+        )
     )
 
 
@@ -382,9 +394,13 @@ def test_reproduce_refit_is_opt_in(reproduce_module, monkeypatch, tmp_path):
     The second half is what makes the test above meaningful: the same tripwire
     that stays silent on the default path fires as soon as ``--refit`` is
     passed, so "no fit happened" is an observation rather than a tautology.
+    Fitting needs the raw training table, so that half needs ``data/raw``.
     """
     assert reproduce_module.build_parser().parse_args([]).refit is False
     assert reproduce_module.build_parser().parse_args(["--refit"]).refit is True
+
+    if not _raw_tables_present():
+        pytest.skip("the raw AME tables are absent, so --refit has nothing to fit")
 
     _trip_on_fit(monkeypatch)
     with pytest.raises(_FitEntered):
