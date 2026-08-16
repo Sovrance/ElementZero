@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+<rect width="900" height="520" fill="#ffffff"/>
+<text x="450" y="30" text-anchor="middle" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="18" fill="#111111">MAE by epoch and model</text>
+<rect x="96" y="56" width="584.000" height="392.000" fill="#fbfbfb" stroke="#333333" stroke-width="1"/>
+<line x1="96" y1="448.000" x2="680.000" y2="448.000" stroke="#e4e4e4" stroke-width="1"/>
+<text x="86" y="452.000" text-anchor="end" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#333333">0</text>
+<line x1="96" y1="369.600" x2="680.000" y2="369.600" stroke="#e4e4e4" stroke-width="1"/>
+<text x="86" y="373.600" text-anchor="end" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#333333">733</text>
+<line x1="96" y1="291.200" x2="680.000" y2="291.200" stroke="#e4e4e4" stroke-width="1"/>
+<text x="86" y="295.200" text-anchor="end" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#333333">1466</text>
+<line x1="96" y1="212.800" x2="680.000" y2="212.800" stroke="#e4e4e4" stroke-width="1"/>
+<text x="86" y="216.800" text-anchor="end" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#333333">2199</text>
+<line x1="96" y1="134.400" x2="680.000" y2="134.400" stroke="#e4e4e4" stroke-width="1"/>
+<text x="86" y="138.400" text-anchor="end" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#333333">2932</text>
+<line x1="96" y1="56.000" x2="680.000" y2="56.000" stroke="#e4e4e4" stroke-width="1"/>
+<text x="86" y="60.000" text-anchor="end" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#333333">3665</text>
+<text x="193.333" y="468" text-anchor="middle" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#333333">EZ-B001-A</text>
+<text x="388.000" y="468" text-anchor="middle" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#333333">EZ-B001-B</text>
+<text x="582.667" y="468" text-anchor="middle" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#333333">EZ-B001-C</text>
+<text x="388.000" y="498" text-anchor="middle" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#111111">experiment</text>
+<text x="26" y="252.000" text-anchor="middle" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="13" fill="#111111" transform="rotate(-90 26 252.000)">MAE (keV)</text>
+<rect x="123.253" y="85.037" width="46.720" height="362.963" fill="#1f77b4" stroke="#333333" stroke-width="0.4"/>
+<rect x="169.973" y="232.764" width="46.720" height="215.236" fill="#d62728" stroke="#333333" stroke-width="0.4"/>
+<rect x="216.693" y="393.341" width="46.720" height="54.659" fill="#2ca02c" stroke="#333333" stroke-width="0.4"/>
+<rect x="317.920" y="109.366" width="46.720" height="338.634" fill="#1f77b4" stroke="#333333" stroke-width="0.4"/>
+<rect x="364.640" y="258.969" width="46.720" height="189.031" fill="#d62728" stroke="#333333" stroke-width="0.4"/>
+<rect x="411.360" y="389.874" width="46.720" height="58.126" fill="#2ca02c" stroke="#333333" stroke-width="0.4"/>
+<rect x="512.587" y="149.646" width="46.720" height="298.354" fill="#1f77b4" stroke="#333333" stroke-width="0.4"/>
+<rect x="559.307" y="248.756" width="46.720" height="199.244" fill="#d62728" stroke="#333333" stroke-width="0.4"/>
+<rect x="606.027" y="406.416" width="46.720" height="41.584" fill="#2ca02c" stroke="#333333" stroke-width="0.4"/>
+<rect x="698" y="64" width="12" height="12" fill="#1f77b4" stroke="#333333" stroke-width="0.5"/>
+<text x="716" y="75" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#111111">EZ-SEMF-LS-v1</text>
+<rect x="698" y="86" width="12" height="12" fill="#d62728" stroke="#333333" stroke-width="0.5"/>
+<text x="716" y="97" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#111111">EZ-GP-DIRECT-v1</text>
+<rect x="698" y="108" width="12" height="12" fill="#2ca02c" stroke="#333333" stroke-width="0.5"/>
+<text x="716" y="119" font-family="DejaVu Sans, Helvetica, Arial, sans-serif" font-size="12" fill="#111111">EZ-SEMF-GP-RESIDUAL-v1</text>
+</svg>

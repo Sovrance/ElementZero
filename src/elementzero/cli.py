@@ -27,6 +27,7 @@ from elementzero.experiments.runner import (
     seal_experiment,
 )
 from elementzero.models.gp_residual import MODEL_ID_SEMF_GP
+from elementzero.reporting.historical import REPORT_DIRNAME, write_report
 
 
 def _require_benchmark(value: str) -> str:
@@ -173,14 +174,42 @@ def build_parser() -> argparse.ArgumentParser:
     suite_score.add_argument("--truth-source", required=True)
     suite_score.add_argument("--edition", default="AME2020")
     suite_score.add_argument("--out", default=None, help="defaults to the suite directory")
+
+    report = sub.add_parser("report", help="build repository reports from committed artifacts")
+    rsub = report.add_subparsers(dest="report_command", required=True)
+
+    historical = rsub.add_parser(
+        "historical",
+        help="build the historical benchmark report over every scored epoch (no refit)",
+    )
+    historical.add_argument("--out", default=None, help=f"defaults to {REPORT_DIRNAME}")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command == "report":
+        if args.report_command == "historical":
+            result = write_report(out_dir=args.out)
+            payload = result["report"]["metrics"]
+            print(
+                canonical_json(
+                    {
+                        "out_dir": result["out_dir"],
+                        "report_version": payload["report_version"],
+                        "experiment_ids": payload["experiment_ids"],
+                        "model_ids": payload["model_ids"],
+                        "n_files": len(result["files"]),
+                        "n_known_failures": len(payload["known_failures"]),
+                    }
+                )
+            )
+            return 0
+        parser.error(f"unknown report command {args.report_command}")
+        return 2
     if args.command != "benchmark":
-        parser.error("only the benchmark command is implemented in v0.2")
+        parser.error("only the benchmark and report commands are implemented in v0.2")
     cmd = args.benchmark_command
     if cmd == "prepare-targets":
         _require_benchmark(args.benchmark)
