@@ -436,6 +436,27 @@ def build_parser() -> argparse.ArgumentParser:
     asub.add_parser("diagnose", help="WO-11.4-11.6 diagnostics from sealed predictions")
     asub.add_parser("controls", help="WO-11.7 benchmark oracle controls")
     asub.add_parser("readiness", help="print the committed WO-11 readiness verdict")
+
+    eligibility = sub.add_parser(
+        "eligibility", help="WO-13 real-data blindness and claim integrity"
+    )
+    esub = eligibility.add_subparsers(dest="eligibility_command", required=True)
+    esub.add_parser("audit-models", help="model training provenance audit")
+    esub.add_parser("build-chronology", help="historical AME source chronology")
+    matrix = esub.add_parser("matrix", help="target-by-model eligibility matrix")
+    matrix.add_argument("--experiment", required=True)
+    subfed = esub.add_parser(
+        "subfederation", help="target-specific strict-blind subfederation"
+    )
+    subfed.add_argument("--experiment", required=True)
+    subfed.add_argument("--target", required=True)
+    esub.add_parser("report", help="print the committed WO-13 gate status")
+    wo13 = esub.add_parser(
+        "wo13", help="full WO-13 pipeline: chronology, matrix, subfederations, "
+        "claim plans, gate status, report"
+    )
+    wo13.add_argument("--output", default=None, help="defaults to reports/eligibility/wo13")
+    wo13.add_argument("--workspace", default=None, help="scratch dir (default: temp dir)")
     return parser
 
 
@@ -569,6 +590,69 @@ def _adjudicate(args: argparse.Namespace) -> int:
     raise SystemExit(f"unknown adjudicate command {cmd!r}")
 
 
+def _eligibility(args: argparse.Namespace) -> int:
+    from elementzero.atlas_pin import REPO_ROOT
+    from elementzero.eligibility import REPORTS_RELPATH as WO13_REPORTS
+    from elementzero.eligibility.historical_sources import build_chronology
+    from elementzero.eligibility.model_training_provenance import audit_models
+    from elementzero.eligibility.report import run_wo13
+    from elementzero.eligibility.subfederation import build_subfederation
+    from elementzero.evidence.ledger import read_json
+
+    cmd = args.eligibility_command
+    if cmd == "wo13":
+        result = run_wo13(out_dir=args.output, workspace_dir=args.workspace)
+        print(canonical_json(result))
+        return 0
+    if cmd == "audit-models":
+        manifest = read_json(
+            REPO_ROOT / "reports" / "model_federation" / "wo12" / "federation_manifest.json"
+        )
+        audit = audit_models(registry_manifest=manifest)
+        print(canonical_json({"status": audit["status"], "n_models": audit["n_models"]}))
+        return 0
+    if cmd == "build-chronology":
+        chronology = build_chronology()
+        print(
+            canonical_json(
+                {
+                    source_id: {
+                        "n_known": entry["n_known"],
+                        "n_eligible": entry["n_eligible"],
+                        "raw_sha256": entry["raw_sha256"],
+                    }
+                    for source_id, entry in chronology["sources"].items()
+                }
+            )
+        )
+        return 0
+    if cmd == "matrix":
+        matrices = read_json(REPO_ROOT / WO13_REPORTS / "target_eligibility_matrix.json")
+        matrix = matrices[args.experiment]
+        print(
+            canonical_json(
+                {
+                    "experiment_id": matrix["experiment_id"],
+                    "n_targets": matrix["n_targets"],
+                    "n_models": matrix["n_models"],
+                }
+            )
+        )
+        return 0
+    if cmd == "subfederation":
+        matrices = read_json(REPO_ROOT / WO13_REPORTS / "target_eligibility_matrix.json")
+        entry = build_subfederation(
+            target_id=args.target,
+            matrix_records=matrices[args.experiment]["records"],
+        )
+        print(canonical_json(entry))
+        return 0
+    if cmd == "report":
+        status = read_json(REPO_ROOT / WO13_REPORTS / "wo13_gate_status.json")
+        print(canonical_json(status))
+        return 0
+    raise SystemExit(f"unknown eligibility command {cmd!r}")
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
@@ -596,8 +680,13 @@ def main(argv: list[str] | None = None) -> int:
         return _run_visual(args)
     if args.command == "adjudicate":
         return _adjudicate(args)
+    if args.command == "eligibility":
+        return _eligibility(args)
     if args.command != "benchmark":
-        parser.error("only the benchmark, report, visual, and adjudicate commands are implemented")
+        parser.error(
+            "only the benchmark, report, visual, adjudicate, and eligibility "
+            "commands are implemented"
+        )
     cmd = args.benchmark_command
     if cmd == "prepare-targets":
         _require_benchmark(args.benchmark)

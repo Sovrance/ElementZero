@@ -1,0 +1,10 @@
+# Minimal official AMDC excerpt for ElementZero golden tests.
+# Source edition: AME1995
+# Upstream file: mass_rmd.mas95 (AMDC public ASCII, Audi-Wapstra 1995).
+# Not a complete mass table; software smoke only.
+# References: https://amdc.impcas.ac.cn/masstables/Ame1995/mass_rmd.mas95
+  -1    0    1    1 H          7288.969    0.001      0.0      0.0      B-      *                 1 007825.032    0.000     
+   0    2    2    4 He         2424.911    0.001  28295.673    0.005    B- -22895.261  212.132    4 002603.250    0.001     
+  -3    1    4    5 Be    x   37996#    3996#      -768#    3996#       B-      *                 5 040790#    4290#        
+  20   70   50  120 Sn       -91103.293    2.5131020544.360    2.519    B-  -2680.600    7.140  119 902196.571    2.698     
+  44  126   82  208 Pb       -21763.563    2.9091636445.728    2.921    B-  -2879.108    2.023  207 976635.850    3.122     

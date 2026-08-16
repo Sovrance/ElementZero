@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero Model Training Provenance",
+  "type": "object",
+  "required": [
+    "model_id",
+    "family_id",
+    "independence_group",
+    "publication",
+    "publication_date",
+    "fit_data_description",
+    "fit_source_editions",
+    "exact_fit_membership_available",
+    "provenance_confidence",
+    "default_blind_use_policy",
+    "evidence_sources"
+  ],
+  "properties": {
+    "model_id": {
+      "type": "string"
+    },
+    "family_id": {
+      "type": "string"
+    },
+    "independence_group": {
+      "type": "string"
+    },
+    "publication": {
+      "type": "string"
+    },
+    "publication_date": {
+      "type": "string"
+    },
+    "fit_data_description": {
+      "type": "string"
+    },
+    "fit_source_editions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fit_cutoff_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "exact_fit_membership_available": {
+      "type": "boolean"
+    },
+    "exact_fit_membership_source": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "exact_fit_membership_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "calibration_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "hyperparameter_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "provenance_confidence": {
+      "enum": [
+        "EXACT",
+        "HIGH",
+        "MEDIUM",
+        "LOW",
+        "UNKNOWN"
+      ]
+    },
+    "default_blind_use_policy": {
+      "type": "string"
+    },
+    "evidence_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -28,6 +28,17 @@ EVENT_TYPES = (
     "FEDERATION_MODEL_AVAILABLE",
     "FEDERATION_QUALIFICATION_TARGETED",
     "FEDERATION_QUALIFICATION_SCORED",
+    # WO-13 claim-aware real-data events. Only REAL_BLIND_VALIDATION_SCORED
+    # may ever grant a validated tile stage, and only when its payload
+    # attests a passed blind gate with an allowed blind claim type;
+    # REAL_RECONSTRUCTION_SCORED adds the R badge and never upgrades the
+    # primary validation stage — reconstruction is not rediscovery.
+    "REAL_BLIND_TARGET_ELIGIBLE",
+    "REAL_BLIND_TARGET_INELIGIBLE",
+    "REAL_BLIND_VALIDATION_SCORED",
+    "REAL_RECONSTRUCTION_SCORED",
+    "BLIND_GATE_NOT_EVALUABLE",
+    "FEDERATED_BLIND_GATE_EVALUABLE",
 )
 
 QUALIFICATION_EVENT_TYPES = frozenset(
@@ -35,6 +46,17 @@ QUALIFICATION_EVENT_TYPES = frozenset(
         "FEDERATION_MODEL_AVAILABLE",
         "FEDERATION_QUALIFICATION_TARGETED",
         "FEDERATION_QUALIFICATION_SCORED",
+    }
+)
+
+REAL_CLAIM_EVENT_TYPES = frozenset(
+    {
+        "REAL_BLIND_TARGET_ELIGIBLE",
+        "REAL_BLIND_TARGET_INELIGIBLE",
+        "REAL_BLIND_VALIDATION_SCORED",
+        "REAL_RECONSTRUCTION_SCORED",
+        "BLIND_GATE_NOT_EVALUABLE",
+        "FEDERATED_BLIND_GATE_EVALUABLE",
     }
 )
 

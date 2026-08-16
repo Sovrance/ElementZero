@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero Target Blindness Record",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "experiment_id",
+    "nuclide_id",
+    "Z",
+    "N",
+    "A",
+    "model_id",
+    "independence_group",
+    "target_truth_edition",
+    "base_fit_overlap",
+    "residual_fit_overlap",
+    "calibration_overlap",
+    "hyperparameter_overlap",
+    "combination_weight_overlap",
+    "claim_type",
+    "strict_gate_eligible",
+    "eligibility_reason",
+    "provenance_confidence",
+    "evidence_sources"
+  ],
+  "properties": {
+    "benchmark_id": {
+      "type": "string"
+    },
+    "experiment_id": {
+      "type": "string"
+    },
+    "nuclide_id": {
+      "type": "string"
+    },
+    "Z": {
+      "type": "integer"
+    },
+    "N": {
+      "type": "integer"
+    },
+    "A": {
+      "type": "integer"
+    },
+    "model_id": {
+      "type": "string"
+    },
+    "independence_group": {
+      "type": "string"
+    },
+    "target_truth_edition": {
+      "type": "string"
+    },
+    "base_fit_overlap": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "residual_fit_overlap": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "calibration_overlap": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "hyperparameter_overlap": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "combination_weight_overlap": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "fit_cutoff_date": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "target_known_at_cutoff": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "exact_fit_membership": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "claim_type": {
+      "enum": [
+        "STRICT_BLIND",
+        "HISTORICAL_BLIND",
+        "PARTIALLY_BLIND",
+        "NONBLIND_REFERENCE",
+        "RECONSTRUCTION_REFERENCE",
+        "INELIGIBLE_UNKNOWN_PROVENANCE"
+      ]
+    },
+    "strict_gate_eligible": {
+      "type": "boolean"
+    },
+    "eligibility_reason": {
+      "type": "string"
+    },
+    "provenance_confidence": {
+      "enum": [
+        "EXACT",
+        "HIGH",
+        "MEDIUM",
+        "LOW",
+        "UNKNOWN"
+      ]
+    },
+    "evidence_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}
