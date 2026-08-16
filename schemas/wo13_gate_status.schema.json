@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero WO-13 Gate Status",
+  "type": "object",
+  "required": [
+    "work_order",
+    "status",
+    "b002_blind_status",
+    "b003_blind_status",
+    "blind_physics_independence_groups",
+    "next_gate"
+  ],
+  "properties": {
+    "work_order": {
+      "const": "WO-13"
+    },
+    "status": {
+      "enum": [
+        "FEDERATED_BLIND_EVALUABLE",
+        "PHYSICS_BLIND_EVALUABLE",
+        "CONTROL_BLIND_EVALUABLE",
+        "REAL_BLIND_GATE_NOT_EVALUABLE",
+        "PROVENANCE_REPAIR_REQUIRED",
+        "INFRASTRUCTURE_REPAIR_REQUIRED"
+      ]
+    },
+    "b002_blind_status": {
+      "type": "string"
+    },
+    "b003_blind_status": {
+      "type": "string"
+    },
+    "blind_physics_independence_groups": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_gate": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

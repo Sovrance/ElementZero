@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero Strict Blind Subfederation Manifest",
+  "type": "object",
+  "required": [
+    "target_id",
+    "eligible_models",
+    "excluded_models",
+    "eligible_independence_groups",
+    "combiner_policy",
+    "resulting_claim_type",
+    "gate_evaluable"
+  ],
+  "properties": {
+    "target_id": {
+      "type": "string"
+    },
+    "eligible_models": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "excluded_models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "claim_type"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "claim_type": {
+            "enum": [
+              "STRICT_BLIND",
+              "HISTORICAL_BLIND",
+              "PARTIALLY_BLIND",
+              "NONBLIND_REFERENCE",
+              "RECONSTRUCTION_REFERENCE",
+              "INELIGIBLE_UNKNOWN_PROVENANCE"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "eligible_independence_groups": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "combiner_policy": {
+      "type": "string"
+    },
+    "weights": {
+      "type": "object"
+    },
+    "resulting_claim_type": {
+      "enum": [
+        "STRICT_BLIND",
+        "HISTORICAL_BLIND"
+      ]
+    },
+    "gate_evaluable": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

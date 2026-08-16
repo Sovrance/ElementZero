@@ -181,3 +181,80 @@ jobs:
       # source-hashed and fetched by tools/fetch_model_tables.py for the
       # full qualification jobs.
       - run: python -m pytest -q tests/integration/test_wo12_qualification.py::test_mini_federation_deterministic
+
+  eligibility-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo13_eligibility.py
+
+  model-provenance-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo13_eligibility.py -k "provenance or thresholds or protocol_hashes or inventory"
+
+  historical-chronology:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      # The committed chronology and AME1995 golden fixtures carry the
+      # historical evidence; raw snapshots are only needed to re-derive it
+      # (tools/fetch_ame_sources.py) and stay out of CI.
+      - run: python -m pytest -q tests/unit/test_ame_parser.py tests/integration/test_wo13_reports.py::test_historical_source_chronology
+
+  blind-subfederation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo13_eligibility.py -k "subfederation or combiner or residual or baseline or blind"
+
+  claim-firewall:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/integration/test_wo13_reports.py -k "recon or claim or tracks or blind_validation"
+
+  wo13-reproducibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      # Stage B rebuilds byte-for-byte from committed inputs; no raw table
+      # or AME snapshot download is required.
+      - run: python -m pytest -q tests/integration/test_wo13_reports.py::test_wo13_report_reproducible

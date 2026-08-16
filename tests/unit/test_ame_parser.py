@@ -7,7 +7,7 @@ import pytest
 from tests.helpers import write_ame_table
 
 from elementzero.benchmark.b001_prepare import prepare_targets
-from elementzero.data.amdc import load_ame2003, load_ame2012, load_ame2016, load_ame2020
+from elementzero.data.amdc import load_ame1995, load_ame2003, load_ame2012, load_ame2016, load_ame2020
 from elementzero.data.amdc.ame2003 import EDITION as E2003
 from elementzero.data.amdc.ame2012 import EDITION as E2012
 from elementzero.data.amdc.ame2016 import EDITION as E2016
@@ -50,6 +50,10 @@ def _assert_golden(stem: str, loader) -> None:
         assert obs.source_origin == exp["source_origin"]
         assert obs.source_record_status == exp["source_record_status"]
         assert obs.ground_truth_eligible is exp["ground_truth_eligible"]
+
+
+def test_ame1995_golden_rows():
+    _assert_golden("ame1995", load_ame1995)
 
 
 def test_ame2003_golden_rows():
