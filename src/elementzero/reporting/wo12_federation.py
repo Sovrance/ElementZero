@@ -221,11 +221,17 @@ def build_atlas_lineage(*, qualification: dict[str, Any], repo_root: Path, out_d
             table_path=path, source_url=manifest["source_url"]
         )
         table_artifacts[manifest["model_id"]] = artifact
-    prediction_facts: dict[tuple[str, str], Any] = {}
-    residual_fit_facts: dict[str, Any] = {}
+    # One prediction fact per model per sealed split: every split refits its
+    # models on its own frozen training identity (three fit digests for the
+    # committed B002 run, two for B003), so a single per-benchmark fact would
+    # falsely claim later splits derive from the first split's fit.
+    prediction_facts: dict[tuple[str, str, str], Any] = {}
     for benchmark_id in (B002_V2_QUAL_ID, B003_V2_QUAL_ID):
         inputs = qualification[benchmark_id]["lineage_inputs"]
-        split_record = qualification[benchmark_id]["split_records"][0]
+        fit_records = {
+            record["split_id"]: record
+            for record in qualification[benchmark_id]["split_records"]
+        }
         # Backbones and plain models first, then residuals, then combiners.
         for model_id, entry in sorted(inputs.items()):
             if "+GP-RESIDUAL" in model_id or model_id.startswith("EZ-FED-"):
@@ -235,70 +241,86 @@ def build_atlas_lineage(*, qualification: dict[str, Any], repo_root: Path, out_d
                 if model_id not in adapter_facts:
                     adapter_facts[model_id] = lineage.model_adapter_fact(
                         artifact=table_artifacts[model_id],
-                        freeze_id=entry["first_split_freeze_id"],
                         model_manifest={
                             "model_id": model_id,
-                            **entry["model_manifest"],
+                            **entry["splits"][0]["model_manifest"],
                         },
                     )
                 adapter_fact = adapter_facts[model_id]
-            prediction_facts[(model_id, benchmark_id)] = lineage.model_prediction_fact(
-                adapter_fact=adapter_fact,
-                model_id=model_id,
-                benchmark_id=benchmark_id,
-                prediction_set_digest=entry["prediction_set_digest"],
-                n_predictions=entry["n_predictions"],
-                n_missing=entry["n_missing"],
-            )
+            for split in entry["splits"]:
+                prediction_facts[(model_id, benchmark_id, split["split_id"])] = (
+                    lineage.model_prediction_fact(
+                        adapter_fact=adapter_fact,
+                        model_id=model_id,
+                        benchmark_id=benchmark_id,
+                        split_id=split["split_id"],
+                        freeze_id=split["freeze_id"],
+                        prediction_set_digest=split["prediction_set_digest"],
+                        n_predictions=split["n_predictions"],
+                        n_missing=split["n_missing"],
+                    )
+                )
         for model_id, entry in sorted(inputs.items()):
             if "+GP-RESIDUAL" not in model_id:
                 continue
             base_id = model_id.split("+GP-RESIDUAL")[0]
-            base_fact = prediction_facts[(base_id, benchmark_id)]
-            manifest = entry["model_manifest"]
-            fit_fact = lineage.residual_fit_fact(
-                base_prediction_fact=base_fact,
-                residual_manifest={
-                    "model_id": model_id,
-                    "base_model_id": manifest.get("base_model_id", base_id),
-                    "residual_gp_config_id": manifest.get("residual_gp_config_id", ""),
-                    "n_residual_pairs": manifest.get("n_residual_pairs", 0),
-                    "n_skipped_uncovered": manifest.get("n_skipped_uncovered", 0),
-                },
-                training_identity_digest=split_record["fit_identity_digest"],
-            )
-            residual_fit_facts[f"{model_id}:{benchmark_id}"] = fit_fact
-            prediction_facts[(model_id, benchmark_id)] = lineage.residual_prediction_fact(
-                residual_fit_fact=fit_fact,
-                model_id=model_id,
-                benchmark_id=benchmark_id,
-                prediction_set_digest=entry["prediction_set_digest"],
-                n_predictions=entry["n_predictions"],
-            )
+            for split in entry["splits"]:
+                base_fact = prediction_facts[(base_id, benchmark_id, split["split_id"])]
+                manifest = split["model_manifest"]
+                fit_fact = lineage.residual_fit_fact(
+                    base_prediction_fact=base_fact,
+                    residual_manifest={
+                        "model_id": model_id,
+                        "base_model_id": manifest.get("base_model_id", base_id),
+                        "residual_gp_config_id": manifest.get("residual_gp_config_id", ""),
+                        "n_residual_pairs": manifest.get("n_residual_pairs", 0),
+                        "n_skipped_uncovered": manifest.get("n_skipped_uncovered", 0),
+                    },
+                    benchmark_id=benchmark_id,
+                    split_id=split["split_id"],
+                    training_identity_digest=split["training_identity_digest"],
+                    fit_identity_digest=fit_records[split["split_id"]][
+                        "fit_identity_digest"
+                    ],
+                )
+                prediction_facts[(model_id, benchmark_id, split["split_id"])] = (
+                    lineage.residual_prediction_fact(
+                        residual_fit_fact=fit_fact,
+                        model_id=model_id,
+                        benchmark_id=benchmark_id,
+                        split_id=split["split_id"],
+                        prediction_set_digest=split["prediction_set_digest"],
+                        n_predictions=split["n_predictions"],
+                    )
+                )
         for model_id, entry in sorted(inputs.items()):
             if not model_id.startswith("EZ-FED-"):
                 continue
-            manifest = entry["model_manifest"]
-            component_ids = manifest.get("component_model_ids", [])
-            contributing = {
-                cid: prediction_facts[(cid, benchmark_id)]
-                for cid in component_ids
-                if (cid, benchmark_id) in prediction_facts
-            }
-            lineage.combination_fact(
-                combiner_manifest={
-                    "model_id": model_id,
-                    "combination_rule": manifest.get("combination_rule", ""),
-                    "weights": manifest.get("weights", {}),
-                    "component_independence_groups": manifest.get(
-                        "component_independence_groups", []
-                    ),
-                    "component_source_hashes": manifest.get("component_source_hashes", {}),
-                },
-                benchmark_id=benchmark_id,
-                contributing_facts=contributing,
-                prediction_set_digest=entry["prediction_set_digest"],
-            )
+            for split in entry["splits"]:
+                manifest = split["model_manifest"]
+                component_ids = manifest.get("component_model_ids", [])
+                contributing = {
+                    cid: prediction_facts[(cid, benchmark_id, split["split_id"])]
+                    for cid in component_ids
+                    if (cid, benchmark_id, split["split_id"]) in prediction_facts
+                }
+                lineage.combination_fact(
+                    combiner_manifest={
+                        "model_id": model_id,
+                        "combination_rule": manifest.get("combination_rule", ""),
+                        "weights": manifest.get("weights", {}),
+                        "component_independence_groups": manifest.get(
+                            "component_independence_groups", []
+                        ),
+                        "component_source_hashes": manifest.get(
+                            "component_source_hashes", {}
+                        ),
+                    },
+                    benchmark_id=benchmark_id,
+                    split_id=split["split_id"],
+                    contributing_facts=contributing,
+                    prediction_set_digest=split["prediction_set_digest"],
+                )
     return lineage.write_bundle(out_dir)
 
 

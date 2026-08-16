@@ -61,3 +61,53 @@ def test_tampering_is_detected(tmp_path):
     tampered.write_bytes(original.replace(b"7.500000000000e-01", b"7.400000000000e-01", 1))
     recorded = (B003 / "CRITERION_SHA256").read_text(encoding="utf-8").strip()
     assert sha256_file(tampered) != recorded
+
+
+def test_worst_region_defect_classifier_accepts_only_the_ranking_defect():
+    from elementzero.adjudication.artifact_audit import (
+        _markdown_defect_only,
+        _worst_region_defect_models,
+    )
+
+    def _aggregate(worst_id: str, worst_mae: str) -> dict:
+        per_region = [
+            {"region_id": "rect-A", "MAE_keV": "2.242414147464e+03"},
+            {"region_id": "rect-B", "MAE_keV": "8.968206217060e+02"},
+        ]
+        return {
+            "by_model": {
+                "EZ-GP-DIRECT-v1": {
+                    "worst_region": {"region_id": worst_id, "MAE_keV": worst_mae},
+                    "per_region": per_region,
+                }
+            }
+        }
+
+    committed = _aggregate("rect-B", "8.968206217060e+02")  # string max, wrong
+    replayed = _aggregate("rect-A", "2.242414147464e+03")  # numeric max, right
+    assert _worst_region_defect_models(committed, replayed) == ["EZ-GP-DIRECT-v1"]
+    # Identical aggregates report no affected models.
+    assert _worst_region_defect_models(replayed, replayed) == []
+    # A replayed choice that is NOT the numeric argmax is a real failure.
+    bogus = _aggregate("rect-B", "8.968206217060e+02")
+    bogus["by_model"]["EZ-GP-DIRECT-v1"]["worst_region"]["region_id"] = "rect-C"
+    assert _worst_region_defect_models(committed, bogus) is None
+    # Any difference outside worst_region is a real failure too.
+    drifted = _aggregate("rect-A", "2.242414147464e+03")
+    drifted["by_model"]["EZ-GP-DIRECT-v1"]["per_region"][0]["MAE_keV"] = (
+        "2.242414147465e+03"
+    )
+    assert _worst_region_defect_models(committed, drifted) is None
+
+    models = ["EZ-GP-DIRECT-v1"]
+    assert _markdown_defect_only(
+        "| EZ-GP-DIRECT-v1 | rect-B | 896.821 |",
+        "| EZ-GP-DIRECT-v1 | rect-A | 2242.41 |",
+        models,
+    )
+    assert not _markdown_defect_only(
+        "| EZ-SEMF-LS-v1 | rect-B | 1.0 |",
+        "| EZ-SEMF-LS-v1 | rect-A | 2.0 |",
+        models,
+    )
+    assert not _markdown_defect_only("a\nb", "a", models)

@@ -484,3 +484,88 @@ def test_visual_does_not_upgrade_on_qualification_failure():
     state = aggregate_events(events)
     element = next(e for e in state["elements"] if e["Z"] == 82)
     assert element["project_primary_stage"] == "not_touched"
+
+
+def test_coverage_status_without_fitting():
+    """The pre-seal audit's view: coverage decidable with no fit, no truth."""
+    table = TableMassModel(
+        model_id="EZ-TOY-TABLE-v1",
+        family_id="toy",
+        independence_group="skyrme_edf_bskg",
+        table=_toy_table({(20, 20): -1000.0}),
+        source_manifest=_toy_manifest(),
+    )
+    inside = NuclideIdentity.from_zn(20, 20)
+    outside = NuclideIdentity.from_zn(21, 21)
+    assert table.coverage_status(inside) == "AVAILABLE"
+    assert table.coverage_status(outside) == "OUT_OF_TABLE"
+    # The residual wrapper's coverage is its base's, before any fit exists.
+    residual = ResidualCorrectedModel(table)
+    assert residual.coverage_status(inside) == "AVAILABLE"
+    assert residual.coverage_status(outside) == "OUT_OF_TABLE"
+    # A combiner covers wherever enough components cover.
+    wrapped = WrappedBaselineModel("EZ-SEMF-LS-v1")
+    assert wrapped.coverage_status(outside) == "AVAILABLE"
+    ensemble = UniformEnsemble([table, wrapped], model_id="EZ-TOY-U")
+    assert ensemble.coverage_status(outside) == "AVAILABLE"
+    lonely = UniformEnsemble([table], model_id="EZ-TOY-L")
+    assert lonely.coverage_status(outside) == "OUT_OF_TABLE"
+
+
+def test_coverage_audit_excludes_partial_coverage_and_records_it():
+    from elementzero.experiments.wo12_qualification import _audit_coverage
+    from elementzero.models.federation.capabilities import (
+        ROLE_CONTROL,
+        ROLE_PHYSICS_BACKBONE,
+    )
+
+    registry = FederationRegistry()
+    registry.register(
+        model_id="EZ-SEMF-LS-v1",
+        role=ROLE_CONTROL,
+        independence_group="liquid_drop_baseline",
+        builder=lambda: WrappedBaselineModel("EZ-SEMF-LS-v1"),
+    )
+    registry.register(
+        model_id="EZ-TOY-TABLE-v1",
+        role=ROLE_PHYSICS_BACKBONE,
+        independence_group="skyrme_edf_bskg",
+        builder=lambda: TableMassModel(
+            model_id="EZ-TOY-TABLE-v1",
+            family_id="toy",
+            independence_group="skyrme_edf_bskg",
+            table=_toy_table({(20, 20): -1000.0, (20, 21): -900.0}),
+            source_manifest=_toy_manifest(),
+        ),
+        license_status="APPROVED",
+    )
+    audit = _audit_coverage(
+        registry,
+        [
+            {
+                "split_id": "rect-T",
+                "training_nuclide_ids": ["Z20-N20"],
+                "target_nuclide_ids": ["Z20-N21", "Z21-N21"],
+            }
+        ],
+    )
+    # The table misses Z21-N21: excluded, and the gap is recorded, not imputed.
+    assert audit["excluded_models"] == ["EZ-TOY-TABLE-v1"]
+    assert audit["sealed_model_ids"] == ["EZ-SEMF-LS-v1"]
+    table_split = audit["by_model"]["EZ-TOY-TABLE-v1"]["splits"][0]
+    assert table_split["uncovered_target_ids"] == ["Z21-N21"]
+    assert table_split["target_statuses"] == {"AVAILABLE": 1, "OUT_OF_TABLE": 1}
+    assert audit["by_model"]["EZ-SEMF-LS-v1"]["fully_covered"] is True
+
+
+def test_runtime_match_requires_every_locked_dimension():
+    from elementzero.models.federation.runtime_lock import capture_runtime, compare_runtime
+
+    lock = capture_runtime()
+    assert compare_runtime(lock)["mode"] == "REFERENCE_MATCH"
+    for field in ("blas_lapack", "operating_system", "architecture", "python_implementation"):
+        drifted = dict(lock)
+        drifted[field] = {"blas": {"name": "other", "version": "0"}} if field == "blas_lapack" else "other"
+        comparison = compare_runtime(drifted)
+        assert comparison["mode"] == "SCIENTIFIC_EQUIVALENCE", field
+        assert field in comparison["deltas"]

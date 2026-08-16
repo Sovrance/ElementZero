@@ -19,9 +19,12 @@ Combined lineage:
 
 Contributors are never flattened into one anonymous model: every combination
 fact carries the contributing fact ids, model ids, weights, and independence
-groups. Prediction sets are content-addressed as sets (one fact per model per
-qualification benchmark) — the per-nuclide sealed prediction facts of the
-benchmark pipeline already exist next to these and are not duplicated.
+groups. Prediction sets are content-addressed as sets, one fact per model per
+sealed split per qualification benchmark — every split independently refits
+its models on its own frozen training identity, so a single per-benchmark
+fact would falsely claim later splits derive from the first split's fit. The
+per-nuclide sealed prediction facts of the benchmark pipeline already exist
+next to these and are not duplicated.
 """
 
 from __future__ import annotations
@@ -113,7 +116,6 @@ class FederationLineage:
         self,
         *,
         artifact,
-        freeze_id: str,
         model_manifest: dict[str, Any],
     ) -> Fact:
         content = {
@@ -123,12 +125,11 @@ class FederationLineage:
             "table_raw_sha256": model_manifest.get("table_raw_sha256"),
             "parser_version": model_manifest.get("parser_version"),
             "table_n_rows": model_manifest.get("table_n_rows"),
-            "freeze_id": freeze_id,
             "artifact_id": artifact.artifact_id,
             "warning": FEDERATION_LINEAGE_WARNING,
         }
         fact = self._analyst_fact(
-            content, assumptions=(f"freeze:{freeze_id}", f"artifact:{artifact.artifact_id}")
+            content, assumptions=(f"artifact:{artifact.artifact_id}",)
         )
         self._record(fact, activity_type="TRANSFORM", used=(artifact.artifact_id,))
         return fact
@@ -139,6 +140,8 @@ class FederationLineage:
         adapter_fact: Fact | None,
         model_id: str,
         benchmark_id: str,
+        split_id: str,
+        freeze_id: str,
         prediction_set_digest: str,
         n_predictions: int,
         n_missing: int,
@@ -147,12 +150,14 @@ class FederationLineage:
             "kind": MODEL_PREDICTION_FACT_KIND,
             "model_id": model_id,
             "benchmark_id": benchmark_id,
+            "split_id": split_id,
+            "freeze_id": freeze_id,
             "prediction_set_digest": prediction_set_digest,
             "n_predictions": n_predictions,
             "n_missing": n_missing,
             "warning": FEDERATION_LINEAGE_WARNING,
         }
-        assumptions = (f"model:{model_id}",)
+        assumptions = (f"model:{model_id}", f"freeze:{freeze_id}")
         if adapter_fact is not None:
             assumptions = assumptions + (f"fact:{adapter_fact.fact_id}",)
         fact = self._analyst_fact(content, assumptions=assumptions)
@@ -168,7 +173,10 @@ class FederationLineage:
         *,
         base_prediction_fact: Fact,
         residual_manifest: dict[str, Any],
+        benchmark_id: str,
+        split_id: str,
         training_identity_digest: str,
+        fit_identity_digest: str,
     ) -> Fact:
         content = {
             "kind": RESIDUAL_FIT_FACT_KIND,
@@ -177,7 +185,10 @@ class FederationLineage:
             "residual_gp_config_id": residual_manifest["residual_gp_config_id"],
             "n_residual_pairs": residual_manifest["n_residual_pairs"],
             "n_skipped_uncovered": residual_manifest["n_skipped_uncovered"],
+            "benchmark_id": benchmark_id,
+            "split_id": split_id,
             "training_identity_digest": training_identity_digest,
+            "fit_identity_digest": fit_identity_digest,
             "warning": FEDERATION_LINEAGE_WARNING,
         }
         fact = self._analyst_fact(
@@ -192,6 +203,7 @@ class FederationLineage:
         residual_fit_fact: Fact,
         model_id: str,
         benchmark_id: str,
+        split_id: str,
         prediction_set_digest: str,
         n_predictions: int,
     ) -> Fact:
@@ -199,6 +211,7 @@ class FederationLineage:
             "kind": RESIDUAL_PREDICTION_FACT_KIND,
             "model_id": model_id,
             "benchmark_id": benchmark_id,
+            "split_id": split_id,
             "prediction_set_digest": prediction_set_digest,
             "n_predictions": n_predictions,
             "warning": FEDERATION_LINEAGE_WARNING,
@@ -212,6 +225,7 @@ class FederationLineage:
         *,
         combiner_manifest: dict[str, Any],
         benchmark_id: str,
+        split_id: str,
         contributing_facts: dict[str, Fact],
         prediction_set_digest: str,
     ) -> Fact:
@@ -219,6 +233,7 @@ class FederationLineage:
             "kind": COMBINATION_FACT_KIND,
             "model_id": combiner_manifest["model_id"],
             "benchmark_id": benchmark_id,
+            "split_id": split_id,
             "combination_rule": combiner_manifest["combination_rule"],
             "weights": combiner_manifest["weights"],
             "contributing_model_ids": sorted(contributing_facts),

@@ -75,6 +75,13 @@ class TableMassModel(NuclearMassModel):
             return None
         return int(nearest_training(z=z, n=n, lattice=self._lattice)["nearest_training_L1"])
 
+    def coverage_status(self, nuclide: NuclideIdentity) -> str:
+        if nuclide.Z < 1 or nuclide.N < 0:
+            return STATUS_UNSUPPORTED_NUCLIDE
+        if self._table.get(nuclide.Z, nuclide.N) is None:
+            return STATUS_OUT_OF_TABLE
+        return STATUS_AVAILABLE
+
     def predict(self, nuclide: NuclideIdentity) -> FederationPrediction:
         z, n = nuclide.Z, nuclide.N
         if z < 1 or n < 0:

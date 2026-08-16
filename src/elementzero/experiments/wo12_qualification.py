@@ -32,7 +32,9 @@ from typing import Any
 
 from elementzero.data.amdc.ame2020 import EDITION as AME2020_SPEC
 from elementzero.data.amdc.common import format_ame_line
+from elementzero.data.identity import NuclideIdentity, parse_nuclide_id
 from elementzero.errors import ProtocolError
+from elementzero.evidence.freezes import identity_digest
 from elementzero.evidence.hashing import canonical_json, sha256_file, sha256_hex
 from elementzero.evidence.ledger import read_json
 from elementzero.models.federation import FEDERATION_PROTOCOL_VERSION
@@ -255,24 +257,36 @@ class FederationRunAdapter:
     """Bridge: a federation model speaking the sealed v1 model interface.
 
     Every prediction's decomposed federation view is recorded into the shared
-    ``recorder`` store keyed (model_id, nuclide_id) during the blind predict
-    phase — no truth is involved — so the qualification report can show the
-    decomposition next to the sealed Gaussian numbers.
+    ``recorder`` store keyed ``model_id -> fit_digest -> nuclide_id`` during
+    the blind predict phase — no truth is involved — so the qualification
+    report can show the decomposition next to the sealed Gaussian numbers.
+    ``fit_digest`` is the identity digest of the training ids handed to
+    ``fit``, which is exactly the training identity the sealed freeze pins:
+    when two splits share a target nuclide, each split's independently fitted
+    prediction keeps its own instance instead of overwriting the other.
     """
 
-    def __init__(self, inner: NuclearMassModel, recorder: dict[str, dict[str, Any]]) -> None:
+    def __init__(
+        self, inner: NuclearMassModel, recorder: dict[str, dict[str, dict[str, Any]]]
+    ) -> None:
         self._inner = inner
         self._recorder = recorder
+        self._fit_digest: str | None = None
         self.model_id = inner.model_id
 
     def fit(self, observations) -> None:
         self._inner.fit(observations)
+        self._fit_digest = identity_digest(sorted(o.nuclide_id for o in observations))
 
     def predict(self, nuclide):
+        if self._fit_digest is None:
+            raise ProtocolError(
+                f"{self.model_id}: predict before fit inside the sealed pipeline"
+            )
         federation_prediction: FederationPrediction = self._inner.predict(nuclide)
-        self._recorder.setdefault(self._inner.model_id, {})[nuclide.nuclide_id] = (
-            federation_prediction.to_dict()
-        )
+        self._recorder.setdefault(self._inner.model_id, {}).setdefault(
+            self._fit_digest, {}
+        )[nuclide.nuclide_id] = federation_prediction.to_dict()
         return federation_prediction.to_benchmark_prediction(
             uncertainty_method=self._inner.uncertainty_policy
         )
@@ -281,11 +295,132 @@ class FederationRunAdapter:
         return self._inner.manifest()
 
 
-def _federation_builders(registry, recorder: dict[str, dict[str, Any]]):
+def _federation_builders(registry, recorder: dict[str, dict[str, dict[str, Any]]]):
     return {
         model_id: (lambda m=model_id: FederationRunAdapter(registry.build(m), recorder))
         for model_id in registry.model_ids
     }
+
+
+# --------------------------------------------------------------------------- #
+# Pre-seal coverage audit (section 16)                                        #
+# --------------------------------------------------------------------------- #
+
+COVERAGE_AUDIT_RULE = (
+    "ez-wo12-coverage-audit-v1: before anything is sealed, every registered "
+    "participant is audited against every split's full corpus (training and "
+    "targets) through coverage_status alone — no fitting, no truth. A "
+    "participant that cannot cover the full corpus of every split is "
+    "excluded from the sealed qualification and recorded here with its "
+    "per-split statuses; missing coverage is a recorded status, never an "
+    "imputed number and never a mid-seal crash."
+)
+
+
+def _audit_coverage(registry, splits: list[dict[str, Any]]) -> dict[str, Any]:
+    """Coverage of every participant over every split's corpus, pre-seal."""
+    by_model: dict[str, Any] = {}
+    excluded: list[str] = []
+    for model_id in registry.model_ids:
+        model = registry.build(model_id)
+        split_reports = []
+        fully_covered = True
+        for split in splits:
+            statuses: dict[str, dict[str, int]] = {"training": {}, "targets": {}}
+            missing: dict[str, list[str]] = {"training": [], "targets": []}
+            for side, ids in (
+                ("training", split["training_nuclide_ids"]),
+                ("targets", split["target_nuclide_ids"]),
+            ):
+                for nuclide_id in ids:
+                    z, n = parse_nuclide_id(nuclide_id)
+                    status = model.coverage_status(NuclideIdentity.from_zn(z, n))
+                    statuses[side][status] = statuses[side].get(status, 0) + 1
+                    if status != STATUS_AVAILABLE:
+                        missing[side].append(nuclide_id)
+            covered = not missing["training"] and not missing["targets"]
+            fully_covered = fully_covered and covered
+            split_reports.append(
+                {
+                    "split_id": split["split_id"],
+                    "n_training": len(split["training_nuclide_ids"]),
+                    "n_targets": len(split["target_nuclide_ids"]),
+                    "training_statuses": dict(sorted(statuses["training"].items())),
+                    "target_statuses": dict(sorted(statuses["targets"].items())),
+                    "uncovered_training_ids": sorted(missing["training"]),
+                    "uncovered_target_ids": sorted(missing["targets"]),
+                    "fully_covered": covered,
+                }
+            )
+        by_model[model_id] = {"splits": split_reports, "fully_covered": fully_covered}
+        if not fully_covered:
+            excluded.append(model_id)
+    sealed = [m for m in registry.model_ids if m not in excluded]
+    if not sealed:
+        raise ProtocolError(
+            "no federation participant covers the qualification corpus; "
+            "nothing can be sealed"
+        )
+    return {
+        "rule": COVERAGE_AUDIT_RULE,
+        "by_model": by_model,
+        "excluded_models": sorted(excluded),
+        "sealed_model_ids": sealed,
+    }
+
+
+def _b002_split_manifests(*, chart: Path, regions_path: Path) -> list[dict[str, Any]]:
+    """The exact split corpora the seal will freeze, computed without sealing."""
+    from elementzero.benchmark.b002_prepare import prepare_geographic_split
+    from elementzero.experiments.b002_runner import read_regions
+
+    regions = read_regions(regions_path)
+    manifests = []
+    for region in regions["regions"]:
+        split = prepare_geographic_split(
+            source=chart,
+            edition_id=EDITION_ID,
+            region=region,
+            region_manifest_hash=regions["region_manifest_hash"],
+            out_dir=None,
+        )
+        manifest = split["split_manifest"]
+        manifests.append(
+            {
+                "split_id": manifest["region_id"],
+                "training_nuclide_ids": list(manifest["training_nuclide_ids"]),
+                "target_nuclide_ids": list(manifest["target_nuclide_ids"]),
+            }
+        )
+    return manifests
+
+
+def _b003_split_manifests(*, chart: Path, challenges_path: Path) -> list[dict[str, Any]]:
+    from elementzero.benchmark.b003_prepare import prepare_shell_split
+    from elementzero.experiments.b003_runner import read_challenges
+
+    challenges = read_challenges(challenges_path)
+    manifests = []
+    for challenge in challenges["challenges"]:
+        if challenge["status"] != "EVALUABLE":
+            continue
+        mask = challenges["masks"][challenge["challenge_id"]]
+        split = prepare_shell_split(
+            source=chart,
+            edition_id=EDITION_ID,
+            mask=mask,
+            challenge_manifest_hash=challenges["challenge_manifest_hash"],
+            out_dir=None,
+        )
+        manifest = split["split_manifest"]
+        manifests.append(
+            {
+                "split_id": manifest["challenge_id"],
+                "training_nuclide_ids": list(manifest["training_nuclide_ids"]),
+                "target_nuclide_ids": list(manifest["target_nuclide_ids"]),
+            }
+        )
+    return manifests
 
 
 # --------------------------------------------------------------------------- #
@@ -346,7 +481,7 @@ def run_b002_qualification(
         select_regions_for_source,
     )
 
-    recorder: dict[str, dict[str, Any]] = {}
+    recorder: dict[str, dict[str, dict[str, Any]]] = {}
     builders = _federation_builders(registry, recorder)
     experiment_dir = workspace / B002_V2_QUAL_ID
     regions_path = workspace / "regions.json"
@@ -357,6 +492,9 @@ def run_b002_qualification(
         candidates_output=workspace / "region_candidates.json",
         source_relpath=B002_CHART_NAME,
     )
+    coverage_audit = _audit_coverage(
+        registry, _b002_split_manifests(chart=chart, regions_path=regions_path)
+    )
     with control_model_registry(builders):
         seal_b002(
             source=chart,
@@ -364,7 +502,7 @@ def run_b002_qualification(
             regions_path=regions_path,
             experiment_dir=experiment_dir,
             created_at=QUAL_CREATED_AT,
-            model_ids=tuple(registry.model_ids),
+            model_ids=tuple(coverage_audit["sealed_model_ids"]),
         )
         score_b002(
             source=chart,
@@ -396,11 +534,13 @@ def run_b002_qualification(
         if metrics["MAE_keV"] <= B002_V2_GATE["best_model_max_MAE_keV"]
         and metrics["calibration_error_90"] <= B002_V2_GATE["best_model_max_calibration_error_90"]
     }
-    truth, meta, decomposition = _collect_rows(experiment_dir, recorder, kind="b002")
-    per_model_points = _points_from_recorder(recorder, meta)
+    split_index = _split_index(experiment_dir, kind="b002")
+    truth, instance_meta, decomposition = _collect_rows(
+        experiment_dir, recorder, split_index, kind="b002"
+    )
     rows = disagreement_rows(
-        per_model_points=per_model_points,
-        target_meta=meta,
+        per_model_points=_points_from_recorder(recorder, split_index),
+        target_meta=instance_meta,
         model_groups=_model_groups(registry),
     )
     return {
@@ -410,12 +550,13 @@ def run_b002_qualification(
         "by_model": dict(sorted(by_model.items())),
         "qualifying_models": sorted(qualifying),
         "status": "PASS" if qualifying else "FAIL",
-        "coverage": _coverage_summary(recorder, meta),
+        "coverage": _coverage_summary(recorder, split_index),
+        "coverage_audit": coverage_audit,
         "uncertainty_decomposition": decomposition,
-        "calibration_by_model": _calibration_by_model(recorder, truth),
+        "calibration_by_model": _calibration_by_model(recorder, truth, split_index),
         "disagreement_by_depth": disagreement_by_depth(rows),
         "split_records": _split_records(experiment_dir, kind="b002"),
-        "lineage_inputs": _lineage_inputs(experiment_dir, recorder, meta, kind="b002"),
+        "lineage_inputs": _lineage_inputs(experiment_dir, recorder, split_index, kind="b002"),
         "experiment_dir": str(experiment_dir),
     }
 
@@ -433,7 +574,7 @@ def run_b003_qualification(
         select_challenges_for_source,
     )
 
-    recorder: dict[str, dict[str, Any]] = {}
+    recorder: dict[str, dict[str, dict[str, Any]]] = {}
     builders = _federation_builders(registry, recorder)
     experiment_dir = workspace / B003_V2_QUAL_ID
     challenges_path = workspace / "challenges.json"
@@ -443,6 +584,9 @@ def run_b003_qualification(
         output=challenges_path,
         source_relpath=B003_CHART_NAME,
     )
+    coverage_audit = _audit_coverage(
+        registry, _b003_split_manifests(chart=chart, challenges_path=challenges_path)
+    )
     with control_model_registry(builders):
         seal_b003(
             source=chart,
@@ -450,7 +594,7 @@ def run_b003_qualification(
             challenges_path=challenges_path,
             experiment_dir=experiment_dir,
             created_at=QUAL_CREATED_AT,
-            model_ids=tuple(registry.model_ids),
+            model_ids=tuple(coverage_audit["sealed_model_ids"]),
         )
         score_b003(
             source=chart,
@@ -471,11 +615,13 @@ def run_b003_qualification(
             "calibration_error_90": float(checks["calibration_error_90"]["observed"]),
         }
     meeting = sorted(m for m, p in by_model.items() if p["verdict"] == "CRITERION_MET")
-    truth, meta, decomposition = _collect_rows(experiment_dir, recorder, kind="b003")
-    per_model_points = _points_from_recorder(recorder, meta)
+    split_index = _split_index(experiment_dir, kind="b003")
+    truth, instance_meta, decomposition = _collect_rows(
+        experiment_dir, recorder, split_index, kind="b003"
+    )
     rows = disagreement_rows(
-        per_model_points=per_model_points,
-        target_meta=meta,
+        per_model_points=_points_from_recorder(recorder, split_index),
+        target_meta=instance_meta,
         model_groups=_model_groups(registry),
     )
     return {
@@ -487,12 +633,13 @@ def run_b003_qualification(
         "status": "PASS" if meeting else "FAIL",
         "evaluable_closures": list(aggregate["challenge_ids"]),
         "n_not_evaluable": aggregate["n_not_evaluable_closures"],
-        "coverage": _coverage_summary(recorder, meta),
+        "coverage": _coverage_summary(recorder, split_index),
+        "coverage_audit": coverage_audit,
         "uncertainty_decomposition": decomposition,
-        "calibration_by_model": _calibration_by_model(recorder, truth),
+        "calibration_by_model": _calibration_by_model(recorder, truth, split_index),
         "disagreement_by_depth": disagreement_by_depth(rows),
         "split_records": _split_records(experiment_dir, kind="b003"),
-        "lineage_inputs": _lineage_inputs(experiment_dir, recorder, meta, kind="b003"),
+        "lineage_inputs": _lineage_inputs(experiment_dir, recorder, split_index, kind="b003"),
         "experiment_dir": str(experiment_dir),
     }
 
@@ -502,111 +649,203 @@ def run_b003_qualification(
 # --------------------------------------------------------------------------- #
 
 
-def _lineage_inputs(experiment_dir: Path, recorder, meta, *, kind: str) -> dict[str, Any]:
-    """Per-model inputs for the Atlas federation facts (section 18)."""
+def _instance_key(split_id: str, nuclide_id: str) -> str:
+    return f"{split_id}::{nuclide_id}"
+
+
+def _split_index(experiment_dir: Path, *, kind: str) -> list[dict[str, Any]]:
+    """Sealed splits in seal order, with freeze identities and target sets.
+
+    The recorder attributes every prediction instance to the split whose
+    frozen training identity digest matches the fit the adapter observed —
+    a target shared by two splits keeps both instances.
+    """
+    from elementzero.benchmark.b002_freeze import load_geographic_freeze
+    from elementzero.benchmark.b003_freeze import load_shell_freeze
+
+    sealed = read_json(experiment_dir / "SEALED_PREDICTIONS.json")
+    entries = sealed["regions"] if kind == "b002" else sealed["challenges"]
+    index = []
+    for entry in entries:
+        split_dir = experiment_dir / entry.get(
+            "region_relpath", entry.get("challenge_relpath")
+        )
+        if kind == "b002":
+            frozen = load_geographic_freeze(split_dir / "freeze.json")
+        else:
+            frozen = load_shell_freeze(split_dir / "freeze.json")
+        index.append(
+            {
+                "split_id": entry.get("region_id", entry.get("challenge_id")),
+                "freeze_id": entry["freeze_id"],
+                "training_identity_digest": frozen.freeze.training_identity_digest,
+                "target_ids": sorted(frozen.target_nuclide_ids),
+            }
+        )
+    digests = [s["training_identity_digest"] for s in index]
+    if len(set(digests)) != len(digests):
+        raise ProtocolError(
+            "two sealed splits share one training identity digest; recorded "
+            "fits could not be attributed to splits"
+        )
+    return index
+
+
+def _instances(recorder, split_index) -> dict[str, list[dict[str, Any]]]:
+    """Every recorded prediction instance per model, in sealed split order.
+
+    A recorded fit whose training identity matches no sealed split means a
+    model was fitted on a corpus the seal does not know — a protocol error,
+    never something to drop silently.
+    """
+    known = {s["training_identity_digest"] for s in split_index}
+    out: dict[str, list[dict[str, Any]]] = {}
+    for model_id, fits in sorted(recorder.items()):
+        unknown = sorted(set(fits) - known)
+        if unknown:
+            raise ProtocolError(
+                f"{model_id}: recorded fits match no sealed split: {unknown}"
+            )
+        rows = []
+        for split in split_index:
+            per_nuclide = fits.get(split["training_identity_digest"], {})
+            targets = set(split["target_ids"])
+            for nuclide_id in sorted(per_nuclide):
+                if nuclide_id in targets:
+                    rows.append(
+                        {
+                            "split_id": split["split_id"],
+                            "nuclide_id": nuclide_id,
+                            "payload": per_nuclide[nuclide_id],
+                        }
+                    )
+        out[model_id] = rows
+    return out
+
+
+def _lineage_inputs(
+    experiment_dir: Path, recorder, split_index, *, kind: str
+) -> dict[str, Any]:
+    """Per-model, per-split inputs for the Atlas federation facts (section 18).
+
+    Every split fits its own model on its own frozen training identity, so
+    the lineage carries one prediction-set digest (and, for residual models,
+    one fit identity) per split — never the first split's identity standing
+    in for all of them. ``fitted_nuclide_ids`` is trimmed from the recorded
+    manifests: the fit identity is already pinned by the freeze digests.
+    """
     from elementzero.models.federation.lineage import prediction_set_digest
 
     sealed = read_json(experiment_dir / "SEALED_PREDICTIONS.json")
     entries = sealed["regions"] if kind == "b002" else sealed["challenges"]
-    first = entries[0]
-    manifests = {}
-    for run in first["runs"]:
-        manifest = read_json(experiment_dir / run["run_relpath"] / "model_manifest.json")
-        manifests[run["model_id"]] = manifest["model"]
+    manifests: dict[tuple[str, str], dict[str, Any]] = {}
+    for entry in entries:
+        split_id = entry.get("region_id", entry.get("challenge_id"))
+        for run in entry["runs"]:
+            manifest = read_json(
+                experiment_dir / run["run_relpath"] / "model_manifest.json"
+            )
+            manifests[(split_id, run["model_id"])] = {
+                k: v for k, v in manifest["model"].items() if k != "fitted_nuclide_ids"
+            }
     lineage = {}
-    for model_id, per_nuclide in sorted(recorder.items()):
-        rows = [
-            {**payload, "nuclide_id": nuclide_id}
-            for nuclide_id, payload in per_nuclide.items()
-            if nuclide_id in meta
-        ]
-        available = [r for r in rows if r["status"] == STATUS_AVAILABLE]
-        lineage[model_id] = {
-            "prediction_set_digest": prediction_set_digest(rows),
-            "n_predictions": len(available),
-            "n_missing": len(rows) - len(available),
-            "model_manifest": manifests.get(model_id, {}),
-            "first_split_freeze_id": first["freeze_id"]
-            if "freeze_id" in first
-            else first["runs"][0].get("freeze_id"),
-        }
+    for model_id, rows in _instances(recorder, split_index).items():
+        splits = []
+        for split in split_index:
+            split_rows = [
+                {**r["payload"], "nuclide_id": r["nuclide_id"]}
+                for r in rows
+                if r["split_id"] == split["split_id"]
+            ]
+            available = [r for r in split_rows if r["status"] == STATUS_AVAILABLE]
+            splits.append(
+                {
+                    "split_id": split["split_id"],
+                    "freeze_id": split["freeze_id"],
+                    "training_identity_digest": split["training_identity_digest"],
+                    "prediction_set_digest": prediction_set_digest(split_rows),
+                    "n_predictions": len(available),
+                    "n_missing": len(split_rows) - len(available),
+                    "model_manifest": manifests.get((split["split_id"], model_id), {}),
+                }
+            )
+        lineage[model_id] = {"splits": splits}
     return lineage
 
 
-def _collect_rows(experiment_dir: Path, recorder, *, kind: str):
-    """Truth per target, target metadata, and mean decomposition per model."""
+def _collect_rows(experiment_dir: Path, recorder, split_index, *, kind: str):
+    """Truth per target, per-instance metadata, and mean decomposition."""
     sealed = read_json(experiment_dir / "SEALED_PREDICTIONS.json")
     entries = sealed["regions"] if kind == "b002" else sealed["challenges"]
     truth: dict[str, float] = {}
-    meta: dict[str, dict[str, Any]] = {}
+    instance_meta: dict[str, dict[str, Any]] = {}
     for entry in entries:
-        for run in entry["runs"]:
-            report = read_json(
-                experiment_dir / run["run_relpath"] / "scoring" / "score_report.json"
-            )
-            for row in report["rows"]:
-                truth[row["nuclide_id"]] = float(row["truth_keV"])
-                meta.setdefault(
-                    row["nuclide_id"],
-                    {"nearest_training_L1": int(row["nearest_training_L1"])},
-                )
-            break  # rows are identical across models for one split
+        split_id = entry.get("region_id", entry.get("challenge_id"))
+        run = entry["runs"][0]  # rows are identical across models for one split
+        report = read_json(
+            experiment_dir / run["run_relpath"] / "scoring" / "score_report.json"
+        )
+        for row in report["rows"]:
+            truth[row["nuclide_id"]] = float(row["truth_keV"])
+            instance_meta[_instance_key(split_id, row["nuclide_id"])] = {
+                "nearest_training_L1": int(row["nearest_training_L1"])
+            }
     decomposition: dict[str, dict[str, float]] = {}
-    for model_id, per_nuclide in sorted(recorder.items()):
-        rows = [p for nid, p in per_nuclide.items() if nid in truth]
-        if not rows:
+    for model_id, rows in _instances(recorder, split_index).items():
+        payloads = [r["payload"] for r in rows]
+        if not payloads:
             continue
-        n = len(rows)
+        n = len(payloads)
         decomposition[model_id] = {
             "n": n,
-            "mean_within_model_std_keV": sum(r["within_model_std_keV"] for r in rows) / n,
-            "mean_residual_std_keV": sum(r["residual_std_keV"] for r in rows) / n,
+            "mean_within_model_std_keV": sum(p["within_model_std_keV"] for p in payloads) / n,
+            "mean_residual_std_keV": sum(p["residual_std_keV"] for p in payloads) / n,
             "mean_model_disagreement_std_keV": (
-                sum(r["model_disagreement_std_keV"] for r in rows) / n
+                sum(p["model_disagreement_std_keV"] for p in payloads) / n
             ),
             "mean_predictive_std_keV": (
-                sum(r["predictive_std_keV"] or 0.0 for r in rows) / n
+                sum(p["predictive_std_keV"] or 0.0 for p in payloads) / n
             ),
         }
-    return truth, meta, decomposition
+    return truth, instance_meta, decomposition
 
 
-def _points_from_recorder(recorder, meta) -> dict[str, dict[str, float]]:
+def _points_from_recorder(recorder, split_index) -> dict[str, dict[str, float]]:
     return {
         model_id: {
-            nuclide_id: payload["point_keV"]
-            for nuclide_id, payload in per_nuclide.items()
-            if nuclide_id in meta and payload["status"] == STATUS_AVAILABLE
+            _instance_key(r["split_id"], r["nuclide_id"]): r["payload"]["point_keV"]
+            for r in rows
+            if r["payload"]["status"] == STATUS_AVAILABLE
         }
-        for model_id, per_nuclide in sorted(recorder.items())
+        for model_id, rows in _instances(recorder, split_index).items()
     }
 
 
-def _coverage_summary(recorder, meta) -> dict[str, Any]:
+def _coverage_summary(recorder, split_index) -> dict[str, Any]:
+    """Recorded coverage statuses counted over prediction *instances*."""
     summary = {}
-    for model_id, per_nuclide in sorted(recorder.items()):
+    for model_id, rows in _instances(recorder, split_index).items():
         statuses: dict[str, int] = {}
-        for nuclide_id, payload in per_nuclide.items():
-            if nuclide_id not in meta:
-                continue
-            statuses[payload["status"]] = statuses.get(payload["status"], 0) + 1
+        for r in rows:
+            status = r["payload"]["status"]
+            statuses[status] = statuses.get(status, 0) + 1
         summary[model_id] = statuses
     return summary
 
 
-def _calibration_by_model(recorder, truth) -> dict[str, Any]:
+def _calibration_by_model(recorder, truth, split_index) -> dict[str, Any]:
     payload = {}
-    for model_id, per_nuclide in sorted(recorder.items()):
-        rows = [
+    for model_id, rows in _instances(recorder, split_index).items():
+        calibration_rows = [
             {
-                "prediction_keV": p["point_keV"],
-                "truth_keV": truth[nuclide_id],
-                "std_keV": p["predictive_std_keV"],
+                "prediction_keV": r["payload"]["point_keV"],
+                "truth_keV": truth[r["nuclide_id"]],
+                "std_keV": r["payload"]["predictive_std_keV"],
             }
-            for nuclide_id, p in per_nuclide.items()
-            if nuclide_id in truth and p["status"] == STATUS_AVAILABLE
+            for r in rows
+            if r["nuclide_id"] in truth and r["payload"]["status"] == STATUS_AVAILABLE
         ]
-        payload[model_id] = calibration_metrics(rows)
+        payload[model_id] = calibration_metrics(calibration_rows)
     return payload
 
 

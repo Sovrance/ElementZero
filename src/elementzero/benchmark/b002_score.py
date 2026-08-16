@@ -487,7 +487,12 @@ def aggregate_regions(
     for model_id in model_ids:
         model_reports = [r for r in reports if r["model_id"] == model_id]
         model_rows = [row for r in model_reports for row in r["rows"]]
-        worst = max(model_reports, key=lambda r: (r["metrics"]["MAE_keV"], r["region_id"]))
+        # Reloaded score reports carry canonically serialized floats as
+        # strings (ADR-0002); the worst region is a numeric ranking, so the
+        # comparison must go through float(), never string order.
+        worst = max(
+            model_reports, key=lambda r: (float(r["metrics"]["MAE_keV"]), r["region_id"])
+        )
         by_model[model_id] = {
             "n_regions": len(model_reports),
             "pooled": {

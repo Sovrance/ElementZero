@@ -187,6 +187,16 @@ class NuclearMassModel(abc.ABC):
     @abc.abstractmethod
     def manifest(self) -> dict[str, Any]: ...
 
+    def coverage_status(self, nuclide: NuclideIdentity) -> str:
+        """The status ``predict`` would report, decidable without fitting.
+
+        The coverage audit runs this over a split's full corpus before the
+        seal, so a participant that cannot cover it is excluded and recorded
+        instead of aborting the sealed pipeline mid-run. Parametric models
+        cover every nuclide; table-backed models override with membership.
+        """
+        return STATUS_AVAILABLE
+
     def provenance(self) -> dict[str, Any]:
         manifest = self.source_manifest or {}
         return {

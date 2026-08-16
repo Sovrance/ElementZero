@@ -165,10 +165,12 @@ def test_mini_federation_through_frozen_b002_mechanics(tmp_path):
         )
     aggregate = read_json(experiment_dir / "region_aggregate.json")
     assert set(aggregate["model_ids"]) == set(registry.model_ids)
-    # The recorder captured a decomposed prediction for every sealed target.
+    # The recorder captured a decomposed prediction for every sealed target
+    # instance, keyed by the fit identity of the split that produced it.
     n_targets = aggregate["n_scored_targets"] // len(registry.model_ids)
     for model_id in registry.model_ids:
-        assert len(recorder[model_id]) >= n_targets
+        recorded = sum(len(per_fit) for per_fit in recorder[model_id].values())
+        assert recorded >= n_targets
     # The constant table offset is fully recovered by the residual challenger.
     residual_mae = float(
         aggregate["by_model"]["EZ-TOY-TABLE-v1+GP-RESIDUAL-v1"]["pooled"]["MAE_keV"]
@@ -196,6 +198,26 @@ def test_committed_qualification_artifacts_are_coherent():
     )
     for model_id, payload in aggregate["by_model"].items():
         assert payload["criterion"]["verdict"] == b003["by_model"][model_id]["verdict"]
+    # The two B003 challenges share nine target nuclides; every prediction
+    # instance is kept per split fit (63 + 75 = 138), never overwritten.
+    for model_id, statuses in b003["coverage"].items():
+        assert sum(statuses.values()) == 138, model_id
+    for model_id, payload in b003["calibration_by_model"].items():
+        assert payload["n"] == 138, model_id
+    # Residual lineage carries one fit identity per split, not the first
+    # split's identity standing in for all of them.
+    for model_id, entry in b003["lineage_inputs"].items():
+        digests = [s["prediction_set_digest"] for s in entry["splits"]]
+        assert len(digests) == 2 and len(set(digests)) == 2, model_id
+    # The committed B002-v2 worst-region table ranks numerically.
+    region_aggregate = json.loads(
+        (
+            REPO_ROOT / "experiments" / "EZ-B002-v2" / "qualification" / "region_aggregate.json"
+        ).read_text(encoding="utf-8")
+    )
+    for model_id, payload in region_aggregate["by_model"].items():
+        worst = max(payload["per_region"], key=lambda r: float(r["MAE_keV"]))
+        assert payload["worst_region"]["region_id"] == worst["region_id"], model_id
 
 
 @pytest.mark.skipif(not TABLES_PRESENT, reason="raw model tables not fetched")

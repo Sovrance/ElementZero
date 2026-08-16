@@ -27,7 +27,7 @@ observed weaknesses below are adjudicated without inventing one.
 
 ## 2. Replay verification
 
-- EZ-B002-v1: **PASS** — 9/9 metric files byte-identical, aggregates identical after volatile evidence ids are stripped (strict byte level: all 175 regenerated files identical).
+- EZ-B002-v1: **PASS** — 9/9 metric files byte-identical, aggregates identical after volatile evidence ids are stripped, except the documented defect b002-worst-region-string-ranking-v1 (EZ-GP-DIRECT-v1) (strict byte level: 171/175 files; the rest are raw-float Atlas fact payloads that move by one ULP on a different libm, plus any files under documented defects).
 - EZ-B003-v1: **PASS** — 6/6 metric files byte-identical, aggregates identical after volatile evidence ids are stripped (strict byte level: all 124 regenerated files identical).
 
 Replay re-runs only the frozen scoring stage on the sealed predictions with a fit tripwire armed; a replay that needed model.fit() would raise ProtocolError instead of reproducing.

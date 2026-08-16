@@ -56,9 +56,16 @@ def test_replay_b002_reproduces_frozen_metrics(tmp_path):
     comparison = result["comparison"]
     assert comparison["metrics_files_identical"] == comparison["metrics_files"]
     assert comparison["frozen_metrics_identical"] is True
-    assert result["aggregate_values_identical"] is True
+    # The corrected worst-region ranking (PR #11 review) legitimately differs
+    # from the frozen v1 aggregate for exactly one model; the replay must
+    # surface that as the documented defect, never silently pass or fail.
+    assert result["aggregate_values_identical"] is False
+    assert result["aggregate_values_identical_excluding_known_defects"] is True
+    (defect,) = result["known_defects"]
+    assert defect["defect_id"] == "b002-worst-region-string-ranking-v1"
+    assert defect["models"] == ["EZ-GP-DIRECT-v1"]
     if sys.version_info[:2] == RECORDED_PYTHON_MINOR:
-        assert comparison["strict_byte_identical"] is True
+        assert result["unexplained_strict_byte_differences"] == []
 
 
 def test_replay_b003_reproduces_frozen_verdicts(tmp_path):

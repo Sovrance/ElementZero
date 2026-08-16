@@ -103,6 +103,19 @@ class _CombinationBase(NuclearMassModel):
             component.fit(observations)
         self._fitted_ids = tuple(sorted(o.nuclide_id for o in observations))
 
+    def coverage_status(self, nuclide: NuclideIdentity) -> str:
+        # Mirrors predict: the combiner is available wherever enough
+        # components cover the nuclide, and missing components only shrink
+        # the panel.
+        available = sum(
+            1
+            for c in self.components
+            if c.coverage_status(nuclide) == STATUS_AVAILABLE
+        )
+        if available < self.min_contributors:
+            return STATUS_OUT_OF_TABLE
+        return STATUS_AVAILABLE
+
     def predict(self, nuclide: NuclideIdentity) -> FederationPrediction:
         component_predictions = [c.predict(nuclide) for c in self.components]
         contributing = [p for p in component_predictions if p.status == STATUS_AVAILABLE]

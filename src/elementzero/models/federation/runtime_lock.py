@@ -97,9 +97,25 @@ def assert_lock_complete(lock: dict[str, Any]) -> dict[str, Any]:
 
 
 def compare_runtime(lock: dict[str, Any]) -> dict[str, Any]:
-    """REFERENCE_MATCH on the locked runtime, SCIENTIFIC_EQUIVALENCE elsewhere."""
+    """REFERENCE_MATCH on the locked runtime, SCIENTIFIC_EQUIVALENCE elsewhere.
+
+    Every dimension the lock records because it can move bytes participates
+    in the match — interpreter line and implementation, the array stack,
+    BLAS/LAPACK identity, OS, and architecture. A single differing dimension
+    downgrades the promise to scientific equivalence; claiming byte replay on
+    a runtime that only partially matches would be an incorrect guarantee.
+    """
     current = capture_runtime()
-    keys = ("python_minor", "numpy_version", "scipy_version", "sklearn_version")
+    keys = (
+        "python_minor",
+        "python_implementation",
+        "numpy_version",
+        "scipy_version",
+        "sklearn_version",
+        "blas_lapack",
+        "operating_system",
+        "architecture",
+    )
     deltas = {k: {"locked": lock.get(k), "current": current.get(k)} for k in keys
               if lock.get(k) != current.get(k)}
     return {

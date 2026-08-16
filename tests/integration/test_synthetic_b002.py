@@ -400,8 +400,8 @@ def test_aggregate_reports_all_regions(tmp_path, synthetic_chart):
         assert [r["region_id"] for r in by_model["per_region"]] == sorted(region_ids)
         # The worst region is named, not hidden behind a pooled average.
         assert by_model["worst_region"]["region_id"] in region_ids
-        assert by_model["worst_region"]["MAE_keV"] == max(
-            r["MAE_keV"] for r in by_model["per_region"]
+        assert float(by_model["worst_region"]["MAE_keV"]) == max(
+            float(r["MAE_keV"]) for r in by_model["per_region"]
         )
     assert aggregate["n_scored_targets"] == sum(row["n"] for row in aggregate["rows"])
     for region_id in region_ids:

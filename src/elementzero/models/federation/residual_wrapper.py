@@ -119,6 +119,11 @@ class ResidualCorrectedModel(NuclearMassModel):
         self._skipped_ids = tuple(sorted(skipped))
         self._lattice = training_lattice(self._fitted_ids)
 
+    def coverage_status(self, nuclide: NuclideIdentity) -> str:
+        # No base physics -> no correction target: coverage is the base's,
+        # for benchmark targets and residual training pairs alike.
+        return self.base.coverage_status(nuclide)
+
     def predict(self, nuclide: NuclideIdentity) -> FederationPrediction:
         if self._gp is None:
             raise ProtocolError(f"{self.model_id} has not been fit")
