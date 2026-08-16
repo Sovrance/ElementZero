@@ -154,6 +154,12 @@ A met criterion is NOT proof of a new magic number, and NOT evidence that a
 predicted Z = 154 shell gap or an island of stability exists.
 ```
 
+On the committed synthetic chart all three baselines come out
+`CRITERION_NOT_MET`. The residual model recovers the sign of the gap in every
+scored chain and puts the closure in the top 3 in 80% of them, then ranks it
+first in 8.6% — it detects a discontinuity without localizing it, which is what
+a smooth interpolator does to a kink. The thresholds stay where they were frozen.
+
 No closure of an evaluated mass table has been scored yet. Details in
 `docs/benchmarks/ez-b003.md`.
 
