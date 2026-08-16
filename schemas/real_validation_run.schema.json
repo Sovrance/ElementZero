@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero Real Validation Run",
+  "type": "object",
+  "required": [
+    "experiment_id",
+    "run_id",
+    "claim_track",
+    "state",
+    "protocol_hash",
+    "eligibility_manifest_hash",
+    "prediction_seal_hash",
+    "truth_unlocked",
+    "claim_adjudicated"
+  ],
+  "properties": {
+    "experiment_id": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "claim_track": {
+      "enum": [
+        "BLIND",
+        "RECONSTRUCTION"
+      ]
+    },
+    "state": {
+      "enum": [
+        "PREREGISTERED",
+        "INPUTS_VERIFIED",
+        "PREDICTIONS_GENERATED",
+        "PREDICTIONS_FINALIZED",
+        "SEALED_COMMIT_RECORDED",
+        "TRUTH_UNLOCKED",
+        "SCORED",
+        "CLAIM_ADJUDICATED",
+        "REPORTED"
+      ]
+    },
+    "protocol_hash": {
+      "type": "string"
+    },
+    "eligibility_manifest_hash": {
+      "type": "string"
+    },
+    "prediction_seal_hash": {
+      "type": "string"
+    },
+    "truth_unlocked": {
+      "type": "boolean"
+    },
+    "claim_adjudicated": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

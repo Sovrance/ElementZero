@@ -83,6 +83,7 @@ class ResidualCorrectedModel(NuclearMassModel):
         self._mean: np.ndarray | None = None
         self._scale: np.ndarray | None = None
         self._fitted_ids: tuple[str, ...] = ()
+        self._pair_ids: tuple[str, ...] = ()
         self._skipped_ids: tuple[str, ...] = ()
         self._lattice: tuple[tuple[int, int], ...] = ()
 
@@ -115,9 +116,16 @@ class ResidualCorrectedModel(NuclearMassModel):
             random_state=RESIDUAL_GP_CONFIG["random_state"],
         )
         self._gp.fit((x - self._mean) / self._scale, y)
-        self._fitted_ids = tuple(sorted(o.nuclide_id for o, _ in pairs))
+        # fitted_nuclide_ids is the freeze-approved identity set handed to
+        # fit — the leakage boundary the sealed training digest pins — the
+        # same convention TableMassModel uses for a model that consumes a
+        # subset (or none) of the training VALUES. The pairs whose values
+        # actually entered the residual GP, and the uncovered pairs that
+        # were skipped-and-counted, are recorded separately.
+        self._fitted_ids = tuple(sorted(o.nuclide_id for o in observations))
+        self._pair_ids = tuple(sorted(o.nuclide_id for o, _ in pairs))
         self._skipped_ids = tuple(sorted(skipped))
-        self._lattice = training_lattice(self._fitted_ids)
+        self._lattice = training_lattice(self._pair_ids)
 
     def coverage_status(self, nuclide: NuclideIdentity) -> str:
         # No base physics -> no correction target: coverage is the base's,
@@ -154,7 +162,7 @@ class ResidualCorrectedModel(NuclearMassModel):
 
     def manifest(self) -> dict[str, Any]:
         fitted_kernel = str(self._gp.kernel_) if self._gp is not None else None
-        return {
+        payload = {
             "model_id": self.model_id,
             "family_id": self.family_id,
             "independence_group": self.independence_group,
@@ -164,10 +172,17 @@ class ResidualCorrectedModel(NuclearMassModel):
             "residual_gp_config_id": RESIDUAL_GP_CONFIG_ID,
             "residual_gp_config": dict(RESIDUAL_GP_CONFIG),
             "fitted_kernel": fitted_kernel,
-            "n_residual_pairs": len(self._fitted_ids),
+            "n_residual_pairs": len(self._pair_ids),
             "n_skipped_uncovered": len(self._skipped_ids),
             "predictive_distribution": "gaussian",
             "uncertainty_method": self.uncertainty_policy,
             "training_policy": self.training_policy,
             "fitted_nuclide_ids": list(self._fitted_ids),
         }
+        if self._skipped_ids:
+            # Only present when a coverage gap exists, so fully-covered
+            # (synthetic-chart) manifests stay byte-identical to the
+            # committed WO-12 evidence.
+            payload["residual_pair_nuclide_ids"] = list(self._pair_ids)
+            payload["skipped_uncovered_nuclide_ids"] = list(self._skipped_ids)
+        return payload

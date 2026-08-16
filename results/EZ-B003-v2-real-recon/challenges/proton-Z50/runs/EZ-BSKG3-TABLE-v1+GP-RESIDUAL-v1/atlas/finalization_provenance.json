@@ -1,0 +1,1 @@
+[{"activity":{"id":"act_222b8ab563b275c4","type":"CERTIFY"},"agent":{"id":"elementzero.evidence.normalize","kind":"ANALYZER"},"created_at":"2026-08-16T17:00:00Z","cross_namespace_transform":null,"entity":"fct_sha256_a6fec0c6880ef669","generated":["fct_sha256_a6fec0c6880ef669"],"record_id":"prov_42779e2b8267e9ed","used":["fct_sha256_7a4d13d283088cc0"]}]

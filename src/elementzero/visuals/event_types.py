@@ -39,6 +39,10 @@ EVENT_TYPES = (
     "REAL_RECONSTRUCTION_SCORED",
     "BLIND_GATE_NOT_EVALUABLE",
     "FEDERATED_BLIND_GATE_EVALUABLE",
+    # WO-14 real-run badges: control-blind and historical-blind-edge results
+    # are badge-only evidence and never promote a primary validation stage.
+    "REAL_CONTROL_BLIND_SCORED",
+    "REAL_HISTORICAL_BLIND_EDGE_SCORED",
 )
 
 QUALIFICATION_EVENT_TYPES = frozenset(

@@ -258,3 +258,91 @@ jobs:
       # Stage B rebuilds byte-for-byte from committed inputs; no raw table
       # or AME snapshot download is required.
       - run: python -m pytest -q tests/integration/test_wo13_reports.py::test_wo13_report_reproducible
+
+  wo14-input-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo14_real_validation.py -k "input_hashes or protocol_and_registry"
+
+  wo14-b002-blind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      # The committed sealed run is the evidence; CI verifies the seal, the
+      # roster, and the claim boundary without any raw snapshot.
+      - run: python -m pytest -q tests/unit/test_wo14_real_validation.py tests/integration/test_wo14_results.py -k "b002_blind or blind_workspaces"
+
+  wo14-b002-recon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/integration/test_wo14_results.py -k "b002_recon or improvement or recon_predictions"
+
+  wo14-b003-blind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo14_real_validation.py tests/integration/test_wo14_results.py -k "derived_blindness or edge_not_equal or full_shell or b003_blind"
+
+  wo14-b003-recon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/integration/test_wo14_results.py -k "b003_recon"
+
+  wo14-claim-firewall:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_wo14_real_validation.py tests/integration/test_wo14_results.py -k "claims or scope or visual or adjudicat or not_evaluable or events or atlas or status or truth"
+
+  wo14-reproducibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      # The report bundle rebuilds byte-for-byte from the committed result
+      # trees; no raw snapshot download is required.
+      - run: python -m pytest -q tests/integration/test_wo14_results.py::test_wo14_report_reproducible tests/integration/test_wo14_results.py::test_recon_predictions_still_sealed

@@ -184,27 +184,27 @@ Outputs: `element_progress_events.jsonl`, `element_table_state.json`, `element_t
 | Integration | UNKNOWN |
 | Leakage | UNKNOWN |
 | Overall | UNKNOWN |
-| Benchmark | UNKNOWN |
+| Benchmark | PASS |
 
 | Primary stage | Elements |
 | --- | --- |
-| Not touched | 200 |
-| Data ingested | 0 |
+| Not touched | 90 |
+| Data ingested | 7 |
 | Benchmark targeted | 0 |
-| Historically validated | 0 |
-| Geographic holdout validated | 0 |
+| Historically validated | 74 |
+| Geographic holdout validated | 8 |
 | Shell challenge participant | 0 |
-| Shell rediscovery validated | 0 |
+| Shell rediscovery validated | 21 |
 | Frontier predicted | 0 |
 | Candidate island focus | 0 |
 
 | Field | Value |
 | --- | --- |
 | Layout | `extended_200_project_v1` |
-| Events | 0 |
+| Events | 12373 |
 | Generator | `visual-table-v0.1` |
-| State hash | `4b00cf68604c0e66` |
-| SVG hash | `f655cf24abc8e697` |
+| State hash | `a6880118a43c2e55` |
+| SVG hash | `8b2dc7c848949df8` |
 
 Elements 119-200 are project placeholders, not official IUPAC placement. Prediction-only runs are never shown as validated. Visual states summarize project artifacts and do not constitute experimental discovery claims.
 <!-- ELEMENTZERO_VISUAL_TABLE_END -->
