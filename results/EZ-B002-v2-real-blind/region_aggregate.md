@@ -1,0 +1,55 @@
+# EZ-B002 geographic holdout aggregate
+
+benchmark_id: EZ-B002
+protocol_version: 0.3.0
+b002_protocol_version: 1.0.0
+region_manifest_hash: 8da2aa5dfa2e9388bc3c5e3f6ac0f6cd5f6e9af757f34b3a68ce34c097a57bed
+
+ranking rule: none
+
+threshold rule: EZ-B002 v1 is characterization. Engineering PASS means correct masking, absent leakage, scored and calibrated outputs, and reproducible results. No accuracy pass/fail threshold is defined here, and none may be added after seeing these numbers; a scientific threshold requires a later preregistered protocol version.
+
+| region_id | z_band | model_id | n | MAE_keV | MedAE_keV | RMSE_keV | NLPD | coverage_90 | coverage_95 | calibration_error_90 | calibration_error_95 | max_nearest_training_L1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| rect-Z10-13-N10-14 | light | EZ-SEMF-LS-v1 | 20 | 4.388212406664e+03 | 4.404540124370e+03 | 4.456633162668e+03 | 9.858878698952e+00 | 1.000000000000e+00 | 1.000000000000e+00 | 1.000000000000e-01 | 5.000000000000e-02 | 2 |
+| rect-Z10-13-N10-14 | light | EZ-GP-DIRECT-v1 | 20 | 1.665438076457e+03 | 1.401366295440e+03 | 2.142429274891e+03 | 1.627923202834e+01 | 1.000000000000e+00 | 1.000000000000e+00 | 1.000000000000e-01 | 5.000000000000e-02 | 2 |
+| rect-Z10-13-N10-14 | light | EZ-SEMF-GP-RESIDUAL-v1 | 20 | 1.165375770654e+03 | 1.119078911734e+03 | 1.370431303114e+03 | 1.381398965173e+01 | 1.000000000000e+00 | 1.000000000000e+00 | 1.000000000000e-01 | 5.000000000000e-02 | 2 |
+| rect-Z10-13-N10-14 | light | EZ-GP-OPTIMIZED-CONTROL-v1 | 20 | 9.650164945381e+02 | 5.561226487200e+02 | 1.262753378001e+03 | 1.013051825970e+01 | 6.000000000000e-01 | 6.500000000000e-01 | 3.000000000000e-01 | 3.000000000000e-01 | 2 |
+| rect-Z20-23-N20-24 | medium | EZ-SEMF-LS-v1 | 20 | 4.967514975588e+03 | 4.901833605420e+03 | 5.076101176294e+03 | 1.007453205941e+01 | 8.500000000000e-01 | 1.000000000000e+00 | 5.000000000000e-02 | 5.000000000000e-02 | 2 |
+| rect-Z20-23-N20-24 | medium | EZ-GP-DIRECT-v1 | 20 | 1.838847744065e+03 | 1.537602827880e+03 | 2.308900912981e+03 | 1.627852641989e+01 | 1.000000000000e+00 | 1.000000000000e+00 | 1.000000000000e-01 | 5.000000000000e-02 | 2 |
+| rect-Z20-23-N20-24 | medium | EZ-SEMF-GP-RESIDUAL-v1 | 20 | 6.877639039670e+02 | 3.474985755850e+02 | 9.803250030434e+02 | 1.380975463699e+01 | 1.000000000000e+00 | 1.000000000000e+00 | 1.000000000000e-01 | 5.000000000000e-02 | 2 |
+| rect-Z20-23-N20-24 | medium | EZ-GP-OPTIMIZED-CONTROL-v1 | 20 | 4.432222657325e+02 | 2.750779476300e+02 | 6.499584612246e+02 | 7.980066994718e+00 | 8.000000000000e-01 | 8.500000000000e-01 | 1.000000000000e-01 | 1.000000000000e-01 | 2 |
+| rect-Z50-53-N56-60 | heavy | EZ-SEMF-LS-v1 | 20 | 2.147930687837e+03 | 2.185280040210e+03 | 2.421927179809e+03 | 9.353479131936e+00 | 1.000000000000e+00 | 1.000000000000e+00 | 1.000000000000e-01 | 5.000000000000e-02 | 3 |
+| rect-Z50-53-N56-60 | heavy | EZ-GP-DIRECT-v1 | 20 | 8.388939772545e+02 | 6.987813669550e+02 | 1.074793179173e+03 | 1.627907293716e+01 | 1.000000000000e+00 | 1.000000000000e+00 | 1.000000000000e-01 | 5.000000000000e-02 | 3 |
+| rect-Z50-53-N56-60 | heavy | EZ-SEMF-GP-RESIDUAL-v1 | 20 | 3.726913171600e+02 | 4.262338941750e+02 | 4.465398408972e+02 | 1.381851193359e+01 | 1.000000000000e+00 | 1.000000000000e+00 | 1.000000000000e-01 | 5.000000000000e-02 | 3 |
+| rect-Z50-53-N56-60 | heavy | EZ-GP-OPTIMIZED-CONTROL-v1 | 20 | 2.340469628345e+02 | 2.347958954050e+02 | 2.784573039185e+02 | 7.332106359549e+00 | 1.000000000000e+00 | 1.000000000000e+00 | 1.000000000000e-01 | 5.000000000000e-02 | 3 |
+
+Extrapolation depth (ASCII):
+
+    nearest_training_L1 = min over training nuclei of abs(Z_t - Z_r) + abs(N_t - N_r)
+
+Worst region per model (reported, never dropped):
+
+| model_id | worst_region_id | MAE_keV | RMSE_keV | coverage_90 | coverage_95 |
+| --- | --- | --- | --- | --- | --- |
+| EZ-SEMF-LS-v1 | rect-Z20-23-N20-24 | 4.967514975588e+03 | 5.076101176294e+03 | 8.500000000000e-01 | 1.000000000000e+00 |
+| EZ-GP-DIRECT-v1 | rect-Z20-23-N20-24 | 1.838847744065e+03 | 2.308900912981e+03 | 1.000000000000e+00 | 1.000000000000e+00 |
+| EZ-SEMF-GP-RESIDUAL-v1 | rect-Z10-13-N10-14 | 1.165375770654e+03 | 1.370431303114e+03 | 1.000000000000e+00 | 1.000000000000e+00 |
+| EZ-GP-OPTIMIZED-CONTROL-v1 | rect-Z10-13-N10-14 | 9.650164945381e+02 | 1.262753378001e+03 | 6.000000000000e-01 | 6.500000000000e-01 |
+
+Pooled metrics by extrapolation depth:
+
+| model_id | depth | n | MAE_keV | RMSE_keV | coverage_90 | coverage_95 | NLPD |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| EZ-SEMF-LS-v1 | L1=1 | 40 | 3898.92 | 4228.69 | 0.925 | 1 | 9.78825 |
+| EZ-SEMF-LS-v1 | L1=2 | 19 | 3764.78 | 4025.73 | 1 | 1 | 9.72762 |
+| EZ-SEMF-LS-v1 | L1=3 | 1 | 2585.38 | 2585.38 | 1 | 1 | 9.38294 |
+| EZ-GP-DIRECT-v1 | L1=1 | 40 | 1448.46 | 1900.92 | 1 | 1 | 16.2732 |
+| EZ-GP-DIRECT-v1 | L1=2 | 19 | 1515.48 | 2012.69 | 1 | 1 | 16.2898 |
+| EZ-GP-DIRECT-v1 | L1=3 | 1 | 131.338 | 131.338 | 1 | 1 | 16.3024 |
+| EZ-SEMF-GP-RESIDUAL-v1 | L1=1 | 40 | 674.935 | 882.519 | 1 | 1 | 13.8081 |
+| EZ-SEMF-GP-RESIDUAL-v1 | L1=2 | 19 | 893.776 | 1242.41 | 1 | 1 | 13.8251 |
+| EZ-SEMF-GP-RESIDUAL-v1 | L1=3 | 1 | 537.476 | 537.476 | 1 | 1 | 13.8419 |
+| EZ-GP-OPTIMIZED-CONTROL-v1 | L1=1 | 40 | 466.184 | 722.51 | 0.875 | 0.875 | 8.2352 |
+| EZ-GP-OPTIMIZED-CONTROL-v1 | L1=2 | 19 | 728.439 | 1048.35 | 0.631579 | 0.736842 | 9.05076 |
+| EZ-GP-OPTIMIZED-CONTROL-v1 | L1=3 | 1 | 358.031 | 358.031 | 1 | 1 | 7.48159 |
