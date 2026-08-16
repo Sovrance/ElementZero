@@ -48,6 +48,10 @@ EVENT_TO_BADGE = {
     # stage promotion still requires the claim-checked blind path below.
     "REAL_CONTROL_BLIND_SCORED": "CB",
     "REAL_HISTORICAL_BLIND_EDGE_SCORED": "HB",
+    # WO-15: provenance-complete refittable physics family (qualification
+    # only) and a scored multi-family blind challenge result.
+    "PHYSICS_FAMILY_QUALIFIED": "PF",
+    "PHYSICS_BLIND_CHALLENGE_SCORED": "PB",
 }
 
 # WO-13 claim firewall: a blind real-data validation event may promote a
@@ -72,6 +76,13 @@ def claim_checked_stage_types(
     # primary validation stage — badge only. Shell promotion additionally
     # requires the full-shell blind criterion to have been met.
     if event_type in ("REAL_CONTROL_BLIND_SCORED", "REAL_HISTORICAL_BLIND_EDGE_SCORED"):
+        return []
+    # WO-15: backend qualification is an engineering fact about provenance
+    # and reproducibility — it says nothing about predictive accuracy, so
+    # it never touches a tile's stage. A scored blind challenge is badge-
+    # only here too: its claim record, not the visual layer, decides what
+    # the science supports.
+    if event_type in ("PHYSICS_FAMILY_QUALIFIED", "PHYSICS_BLIND_CHALLENGE_SCORED"):
         return []
     if event_type == "REAL_BLIND_VALIDATION_SCORED":
         data = payload or {}

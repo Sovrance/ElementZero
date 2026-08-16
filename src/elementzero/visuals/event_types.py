@@ -43,6 +43,12 @@ EVENT_TYPES = (
     # are badge-only evidence and never promote a primary validation stage.
     "REAL_CONTROL_BLIND_SCORED",
     "REAL_HISTORICAL_BLIND_EDGE_SCORED",
+    # WO-15: a provenance-complete refittable physics family is an
+    # engineering qualification, not a scientific result. It earns the PF
+    # badge and can never promote a validation stage on its own — only a
+    # scored blind challenge may do that.
+    "PHYSICS_FAMILY_QUALIFIED",
+    "PHYSICS_BLIND_CHALLENGE_SCORED",
 )
 
 QUALIFICATION_EVENT_TYPES = frozenset(
