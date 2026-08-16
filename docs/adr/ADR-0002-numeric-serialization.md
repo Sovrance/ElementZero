@@ -9,8 +9,7 @@ ElementZero scientific artifacts are hashed from canonical JSON:
 
 - sorted keys
 - no incidental whitespace
-- finite floats quantized to 12 significant digits (`float(format(x, '.12e'))`)
-  and emitted as JSON numbers, not quoted strings
+- finite floats rendered with 12 significant digits (`format(x, '.12e')`)
 
 This is the documented exception to raw IEEE byte-for-byte float equality.
 Reproducibility tests compare these canonical hashes, not native pickle bytes.

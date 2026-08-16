@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elementzero.sovrance/schemas/geographic_region.schema.json",
+  "title": "ElementZero EZ-B002 geographic region",
+  "description": "One contiguous block of the (Z, N) chart withheld by EZ-B002. A region carries geometry and identity only; it never carries a mass value. Bounds are inclusive on both axes, and region_id is derived from the bounds.",
+  "type": "object",
+  "oneOf": [
+    {
+      "title": "rectangle",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "z_min", "z_max", "n_min", "n_max"],
+      "properties": {
+        "type": { "const": "rectangle" },
+        "z_min": { "type": "integer", "minimum": 0 },
+        "z_max": { "type": "integer", "minimum": 0 },
+        "n_min": { "type": "integer", "minimum": 0 },
+        "n_max": { "type": "integer", "minimum": 0 },
+        "region_id": { "type": "string", "pattern": "^rect-Z[0-9]+-[0-9]+-N[0-9]+-[0-9]+$" },
+        "z_band": { "enum": ["light", "medium", "heavy", "very_heavy"] }
+      }
+    },
+    {
+      "title": "isotopic segment",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "Z", "n_min", "n_max"],
+      "properties": {
+        "type": { "const": "isotopic" },
+        "Z": { "type": "integer", "minimum": 0 },
+        "n_min": { "type": "integer", "minimum": 0 },
+        "n_max": { "type": "integer", "minimum": 0 },
+        "region_id": { "type": "string", "pattern": "^isotopic-Z[0-9]+-N[0-9]+-[0-9]+$" },
+        "z_band": { "enum": ["light", "medium", "heavy", "very_heavy"] }
+      }
+    },
+    {
+      "title": "isotonic segment",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "N", "z_min", "z_max"],
+      "properties": {
+        "type": { "const": "isotonic" },
+        "N": { "type": "integer", "minimum": 0 },
+        "z_min": { "type": "integer", "minimum": 0 },
+        "z_max": { "type": "integer", "minimum": 0 },
+        "region_id": { "type": "string", "pattern": "^isotonic-N[0-9]+-Z[0-9]+-[0-9]+$" },
+        "z_band": { "enum": ["light", "medium", "heavy", "very_heavy"] }
+      }
+    }
+  ]
+}

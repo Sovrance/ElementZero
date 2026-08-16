@@ -158,6 +158,9 @@ def extract_ame_events(path: Path, *, root: Path) -> list[ProgressEvent]:
     for obs in load_edition(edition, str(path)):
         if not obs.ground_truth_eligible:
             continue
+        # Neutrons (Z=0) and other non-element rows are outside the visual table.
+        if obs.Z < MIN_Z or obs.Z > MAX_Z:
+            continue
         events.append(
             _event(
                 event_type="DATA_INGESTED",
@@ -609,16 +612,27 @@ def extract_events(input_root: str | Path) -> tuple[list[ProgressEvent], dict[st
             input_hashes[rel] = sha256_file(path)
             continue
         if name == "regions.json":
-            events.extend(
-                extract_targets(
-                    path,
-                    root=root,
-                    event_type="REGION_TARGET_CREATED",
-                    benchmark_id="EZ-B002",
-                    benchmark_stage="prepare",
+            # Demo fixtures carry an explicit targets list. Preregistered EZ-B002
+            # region registries list geometry only; per-region targets.json files
+            # under regions/<id>/ are the published nuclide inputs.
+            payload = _read_json(path)
+            if isinstance(payload, dict) and isinstance(payload.get("targets"), list):
+                events.extend(
+                    extract_targets(
+                        path,
+                        root=root,
+                        event_type="REGION_TARGET_CREATED",
+                        benchmark_id="EZ-B002",
+                        benchmark_stage="prepare",
+                    )
                 )
-            )
-            input_hashes[rel] = sha256_file(path)
+                input_hashes[rel] = sha256_file(path)
+            elif isinstance(payload, dict) and isinstance(payload.get("regions"), list):
+                input_hashes[rel] = sha256_file(path)
+            else:
+                raise VisualError(
+                    f"malformed region registry {path}: expected targets or regions list"
+                )
             continue
         if name in {"scored_predictions.json", "score_report.json"}:
             kind = _benchmark_kind(path)

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elementzero.sovrance/schemas/geographic_split_manifest.schema.json",
+  "title": "ElementZero EZ-B002 geographic split manifest",
+  "description": "The split of one frozen mass snapshot around one region: targets are the ground-truth-eligible nuclei inside the region, training is the eligible nuclei outside it. The manifest records identities, counts, policies, and hashes. Any truth-bearing field (mass_excess_keV, uncertainty_keV, ...) is a leakage error.",
+  "type": "object",
+  "required": [
+    "benchmark_id",
+    "protocol_version",
+    "split_policy_id",
+    "split_id",
+    "region_id",
+    "region",
+    "region_manifest_hash",
+    "edition_id",
+    "raw_source_hash",
+    "ground_truth_policy",
+    "parser_version",
+    "feature_policy_id",
+    "feature_policy_hash",
+    "n_targets",
+    "n_training",
+    "target_nuclide_ids",
+    "training_nuclide_ids",
+    "target_identity_digest",
+    "training_identity_digest",
+    "split_digest",
+    "split_digest_rule"
+  ],
+  "properties": {
+    "benchmark_id": { "const": "EZ-B002" },
+    "protocol_version": { "type": "string" },
+    "split_policy_id": { "type": "string" },
+    "split_id": { "type": "string" },
+    "region_policy_id": { "type": "string" },
+    "region_id": { "type": "string" },
+    "region": { "$ref": "https://elementzero.sovrance/schemas/geographic_region.schema.json" },
+    "region_manifest_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "z_band": { "enum": ["light", "medium", "heavy", "very_heavy"] },
+    "edition_id": { "type": "string" },
+    "raw_source_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "ground_truth_policy": { "type": "string" },
+    "parser_version": { "type": "string" },
+    "normalizer_version": { "type": "string" },
+    "feature_policy_id": { "type": "string" },
+    "feature_policy_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "n_eligible": { "type": "integer", "minimum": 1 },
+    "n_targets": { "type": "integer", "minimum": 1 },
+    "n_training": { "type": "integer", "minimum": 1 },
+    "target_nuclide_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^Z[0-9]+-N[0-9]+$" }
+    },
+    "training_nuclide_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^Z[0-9]+-N[0-9]+$" }
+    },
+    "target_identity_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "training_identity_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "supported_sides": {
+      "type": "array",
+      "items": { "enum": ["n_high", "n_low", "z_high", "z_low"] }
+    },
+    "split_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "split_digest_rule": { "type": "string" },
+    "leakage_rule": { "type": "string" }
+  },
+  "not": {
+    "anyOf": [
+      { "required": ["mass_excess_keV"] },
+      { "required": ["uncertainty_keV"] },
+      { "required": ["atomic_mass"] },
+      { "required": ["binding_energy"] },
+      { "required": ["truth"] }
+    ]
+  }
+}

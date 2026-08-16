@@ -9,10 +9,9 @@ from elementzero.data.identity import NuclideIdentity, validate_a
 from elementzero.physics.constants import NORMALIZER_VERSION
 
 # Conservative AME evaluation-status vocabulary (WO-01).
-# AME "#" replaces the decimal point and marks estimated (non-experimental)
-# evaluated values; that alone does not prove a single direct measurement.
-# Reserve direct_measurement for later sources with explicit measurement
-# provenance.
+# AME "#" marks estimated (non-experimental) evaluated values; that alone does
+# not prove a single direct measurement. Reserve direct_measurement for later
+# sources with explicit measurement provenance.
 RECORD_STATUS_EVALUATED_NON_ESTIMATED = "evaluated_non_estimated"
 RECORD_STATUS_EVALUATED_ESTIMATED = "evaluated_estimated"
 RECORD_STATUS_EXTRAPOLATED = "extrapolated"
@@ -24,6 +23,9 @@ RECORD_STATUS_EVALUATED = RECORD_STATUS_EVALUATED_NON_ESTIMATED  # deprecated na
 RECORD_STATUS_ESTIMATED = RECORD_STATUS_EVALUATED_ESTIMATED  # deprecated name
 
 GROUND_TRUTH_ELIGIBLE_STATUSES = frozenset({RECORD_STATUS_EVALUATED_NON_ESTIMATED})
+
+# Named, citable policy for what may act as ground truth in EZ-B001.
+GROUND_TRUTH_POLICY = "ez-gt-policy-v1:evaluated_non_estimated_only"
 
 
 @dataclass(frozen=True)

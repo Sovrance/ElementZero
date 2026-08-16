@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elementzero.sovrance/schemas/shell_mask.schema.json",
+  "title": "ElementZero EZ-B003 hidden shell mask",
+  "description": "The neighborhood of one known shell closure withheld by EZ-B003. A mask carries geometry and identity only; it never carries a mass value. For a neutron closure N0 the withheld coordinates are N in {N0 - half_width, ..., N0 + half_width} for z_min <= Z <= z_max; for a proton closure Z0 they are Z in {Z0 - half_width, ..., Z0 + half_width} for n_min <= N <= n_max. Bounds are inclusive on both axes, and mask_id is derived from the geometry.",
+  "type": "object",
+  "oneOf": [
+    {
+      "title": "neutron closure neighborhood",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["axis", "closure_N", "half_width", "z_min", "z_max"],
+      "properties": {
+        "axis": { "const": "neutron" },
+        "closure_N": { "type": "integer", "minimum": 0 },
+        "half_width": { "type": "integer", "minimum": 1 },
+        "hidden_N": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "The withheld N values, redundant with closure_N and half_width. When present it must agree with them exactly."
+        },
+        "z_min": { "type": "integer", "minimum": 0 },
+        "z_max": { "type": "integer", "minimum": 0 },
+        "mask_id": { "type": "string", "pattern": "^shell-N[0-9]+-w[0-9]+-Z[0-9]+-[0-9]+$" },
+        "mask_policy_id": { "type": "string" }
+      }
+    },
+    {
+      "title": "proton closure neighborhood",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["axis", "closure_Z", "half_width", "n_min", "n_max"],
+      "properties": {
+        "axis": { "const": "proton" },
+        "closure_Z": { "type": "integer", "minimum": 0 },
+        "half_width": { "type": "integer", "minimum": 1 },
+        "hidden_Z": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "The withheld Z values, redundant with closure_Z and half_width. When present it must agree with them exactly."
+        },
+        "n_min": { "type": "integer", "minimum": 0 },
+        "n_max": { "type": "integer", "minimum": 0 },
+        "mask_id": { "type": "string", "pattern": "^shell-Z[0-9]+-w[0-9]+-N[0-9]+-[0-9]+$" },
+        "mask_policy_id": { "type": "string" }
+      }
+    }
+  ],
+  "not": {
+    "anyOf": [
+      { "required": ["mass_excess_keV"] },
+      { "required": ["uncertainty_keV"] },
+      { "required": ["binding_energy"] },
+      { "required": ["S2n"] },
+      { "required": ["S2p"] },
+      { "required": ["delta2n"] },
+      { "required": ["delta2p"] },
+      { "required": ["truth"] }
+    ]
+  }
+}

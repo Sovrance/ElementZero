@@ -1,0 +1,1 @@
+[{"apparatus_id":null,"artifact_id":"art_9a763563b4af1e13","assumptions":[],"calibration_route":null,"event_id":"evt_b28379453416d469","op":"RECORD","ports":[{"name":"atomic_mass_excess","type":"Observable","uncertainty":null,"unit":"keV","value":null}],"source_spans":[],"timing":{}}]

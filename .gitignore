@@ -18,5 +18,10 @@ run/
 htmlcov/
 .mypy_cache/
 .artifacts/
+
+# Official AME raw tables (do not commit)
+data/
+
+# Generated visual renders (keep the directory marker)
 reports/visuals/*
 !reports/visuals/.gitkeep
