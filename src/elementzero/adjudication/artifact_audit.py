@@ -33,6 +33,7 @@ Replay comparison levels:
 from __future__ import annotations
 
 import contextlib
+import copy
 import os
 import platform
 import shutil
@@ -382,6 +383,77 @@ def _tree_hashes(root: Path) -> dict[str, str]:
 # in the strict byte comparison only.
 BOOKKEEPING_BASENAMES = frozenset({"SHA256SUMS.txt", "SCORE_MANIFEST.json"})
 
+# WO-12 review (PR #11) found that aggregate_regions selected each model's
+# worst region by comparing the canonically serialized MAE *strings* of
+# reloaded score reports instead of their numeric values. The live scorer is
+# fixed; the frozen v1 aggregate was produced by the defective ranking and is
+# immutable evidence, so a replay with the corrected scorer legitimately
+# differs from the committed v1 aggregate in exactly the worst_region blocks
+# whose string order disagreed with the numeric order. The replay records
+# that difference under this defect id instead of hiding it — and any
+# difference beyond it still fails the replay. Per-region metrics, pooled
+# metrics, and every sealed prediction are untouched by the defect.
+KNOWN_DEFECT_B002_WORST_REGION = "b002-worst-region-string-ranking-v1"
+B002_AGGREGATE_FILES = ("region_aggregate.json", "region_aggregate.md")
+
+
+def _worst_region_defect_models(
+    committed_aggregate: dict[str, Any], replayed_aggregate: dict[str, Any]
+) -> list[str] | None:
+    """Models whose only aggregate difference is the corrected worst_region.
+
+    Returns the affected model ids when every difference between the two
+    aggregates is a worst_region block where the replayed choice is the
+    numeric argmax of the committed per-region MAE table (the string argmax
+    the defective code chose differs). Returns None when any other
+    difference exists — that is a real replay failure, not the known defect.
+    """
+    committed = _strip_volatile(copy.deepcopy(committed_aggregate))
+    replayed = _strip_volatile(copy.deepcopy(replayed_aggregate))
+    if set(committed.get("by_model", {})) != set(replayed.get("by_model", {})):
+        return None
+    affected = []
+    for model_id, payload in committed["by_model"].items():
+        replayed_payload = replayed["by_model"][model_id]
+        if canonical_json(payload["worst_region"]) == canonical_json(
+            replayed_payload["worst_region"]
+        ):
+            continue
+        numeric_worst = max(
+            payload["per_region"],
+            key=lambda r: (float(r["MAE_keV"]), r["region_id"]),
+        )
+        if replayed_payload["worst_region"]["region_id"] != numeric_worst["region_id"]:
+            return None
+        affected.append(model_id)
+        payload["worst_region"] = replayed_payload["worst_region"]
+    if canonical_json(committed) != canonical_json(replayed):
+        return None
+    return sorted(affected)
+
+
+def _markdown_defect_only(
+    committed_md: str, replayed_md: str, models: list[str]
+) -> bool:
+    """True when the two renders differ only in the affected models' rows.
+
+    The aggregate markdown is a derived view of the aggregate JSON; the
+    ranking defect moves exactly the "worst region per model" row of each
+    affected model, so any other differing line means the difference is not
+    the documented defect.
+    """
+    committed_lines = committed_md.splitlines()
+    replayed_lines = replayed_md.splitlines()
+    if len(committed_lines) != len(replayed_lines):
+        return False
+    prefixes = tuple(f"| {model_id} | " for model_id in models)
+    for line_a, line_b in zip(committed_lines, replayed_lines):
+        if line_a == line_b:
+            continue
+        if not (line_a.startswith(prefixes) and line_b.startswith(prefixes)):
+            return False
+    return True
+
 
 def _compare_trees(committed: Path, replayed: Path) -> dict[str, Any]:
     a, b = _tree_hashes(committed), _tree_hashes(replayed)
@@ -457,13 +529,72 @@ def replay_b002(
     comparison = _compare_trees(committed, workspace)
     replayed_aggregate = read_json(workspace / "region_aggregate.json")
     committed_aggregate = read_json(committed / "region_aggregate.json")
+    aggregate_values_identical = canonical_json(
+        _strip_volatile(committed_aggregate)
+    ) == canonical_json(_strip_volatile(replayed_aggregate))
+
+    # Classify aggregate differences against the documented ranking defect:
+    # tolerated only when the whole difference is the corrected worst_region
+    # choice, and each side's markdown is the faithful render of its own JSON.
+    known_defects: list[dict[str, Any]] = []
+    frozen_metric_differences = list(comparison["frozen_metric_differences"])
+    defect_differences = [f for f in frozen_metric_differences if f in B002_AGGREGATE_FILES]
+    if defect_differences and not aggregate_values_identical:
+        affected_models = _worst_region_defect_models(
+            committed_aggregate, replayed_aggregate
+        )
+        markdown_confined = bool(affected_models) and _markdown_defect_only(
+            (committed / "region_aggregate.md").read_text(encoding="utf-8"),
+            (workspace / "region_aggregate.md").read_text(encoding="utf-8"),
+            affected_models,
+        )
+        if affected_models and markdown_confined:
+            frozen_metric_differences = [
+                f for f in frozen_metric_differences if f not in B002_AGGREGATE_FILES
+            ]
+            known_defects.append(
+                {
+                    "defect_id": KNOWN_DEFECT_B002_WORST_REGION,
+                    "files": sorted(
+                        f
+                        for f in comparison["differing_files"]
+                        if f in B002_AGGREGATE_FILES
+                    ),
+                    "models": affected_models,
+                    "note": (
+                        "the committed v1 aggregate named each model's worst "
+                        "region by lexicographic order of the canonical MAE "
+                        "strings; the corrected scorer ranks numerically. The "
+                        "v1 evidence stays byte-frozen and the discrepancy is "
+                        "recorded here instead of being rewritten."
+                    ),
+                }
+            )
+    defect_files = {f for entry in known_defects for f in entry["files"]}
+    comparison = {
+        **comparison,
+        "frozen_metric_differences": frozen_metric_differences,
+        "frozen_metrics_identical": (
+            not comparison["missing_files"]
+            and comparison["metrics_files_identical"] == comparison["metrics_files"]
+            and not frozen_metric_differences
+        ),
+    }
     return {
         "benchmark_id": "EZ-B002",
         "experiment": committed.name,
         "environment": _replay_environment(),
         "comparison": comparison,
-        "aggregate_values_identical": canonical_json(_strip_volatile(committed_aggregate))
-        == canonical_json(_strip_volatile(replayed_aggregate)),
+        "aggregate_values_identical": aggregate_values_identical,
+        "aggregate_values_identical_excluding_known_defects": (
+            aggregate_values_identical or bool(known_defects)
+        ),
+        "known_defects": known_defects,
+        "unexplained_strict_byte_differences": sorted(
+            f
+            for f in comparison["differing_files"]
+            if f not in defect_files and Path(f).name not in BOOKKEEPING_BASENAMES
+        ),
         "replay_status": "PASS" if comparison["frozen_metrics_identical"] else "FAIL",
     }
 

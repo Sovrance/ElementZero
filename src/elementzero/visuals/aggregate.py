@@ -14,7 +14,12 @@ from elementzero.visuals import (
     GENERATOR_VERSION,
     HONESTY_NOTE,
 )
-from elementzero.visuals.event_types import SUITE_EVENT_TYPES, ProgressEvent, validate_event
+from elementzero.visuals.event_types import (
+    QUALIFICATION_EVENT_TYPES,
+    SUITE_EVENT_TYPES,
+    ProgressEvent,
+    validate_event,
+)
 from elementzero.visuals.labels import BADGE_LABELS, STAGE_LABELS
 from elementzero.visuals.metadata import load_element_metadata, metadata_for, position_for
 from elementzero.visuals.status import badges_from_event_types, select_primary_stage
@@ -80,7 +85,11 @@ def health_from_events(events: list[ProgressEvent]) -> dict[str, str]:
             status = "pass" if event.event_type == "TEST_SUITE_PASS" else "fail"
             if suite in health and health[suite] != "fail":
                 health[suite] = status
-        if event.event_type.endswith("_SCORED"):
+        if event.event_type.endswith("_SCORED") and event.event_type not in (
+            QUALIFICATION_EVENT_TYPES
+        ):
+            # Qualification-only federation events never flip benchmark
+            # health: a rehearsal is not a validated benchmark result.
             health["benchmark"] = "pass"
     suites = (health["unit"], health["integration"], health["leakage"])
     if health["overall"] == "unknown":

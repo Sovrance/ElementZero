@@ -358,12 +358,23 @@ def render_report(
             strict_note = (
                 f"strict byte level: {comparison['n_identical']}/{comparison['n_files']} files; "
                 "the rest are raw-float Atlas fact payloads that move by one ULP "
-                "on a different libm"
+                "on a different libm, plus any files under documented defects"
             )
+        defects = entry.get("known_defects") or []
+        if defects:
+            aggregate_note = (
+                "aggregates identical after volatile evidence ids are stripped, "
+                "except the documented defect "
+                + ", ".join(
+                    f"{d['defect_id']} ({', '.join(d['models'])})" for d in defects
+                )
+            )
+        else:
+            aggregate_note = "aggregates identical after volatile evidence ids are stripped"
         lines.append(
             f"- {name}: **{entry['replay_status']}** — "
             f"{comparison['metrics_files_identical']}/{comparison['metrics_files']} metric files "
-            f"byte-identical, aggregates identical after volatile evidence ids are stripped "
+            f"byte-identical, {aggregate_note} "
             f"({strict_note})."
         )
     lines += [

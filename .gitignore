@@ -19,8 +19,9 @@ htmlcov/
 .mypy_cache/
 .artifacts/
 
-# Official AME raw tables (do not commit)
-data/
+# Official AME raw tables and fetched model tables (do not commit).
+# Anchored to the repository root: src/elementzero/data/ is source code.
+/data/
 
 # Generated visual renders (keep the directory marker)
 reports/visuals/*

@@ -21,6 +21,21 @@ EVENT_TYPES = (
     "SHELL_VALIDATION_SCORED",
     "FRONTIER_PREDICTION_CREATED",
     "CANDIDATE_ISLAND_MARKED",
+    # WO-12 federation events. Qualification-only: none of these maps to a
+    # validated tile stage, and FEDERATION_QUALIFICATION_SCORED is excluded
+    # from the benchmark-health shortcut (a qualification run is rehearsal,
+    # not a validated benchmark result).
+    "FEDERATION_MODEL_AVAILABLE",
+    "FEDERATION_QUALIFICATION_TARGETED",
+    "FEDERATION_QUALIFICATION_SCORED",
+)
+
+QUALIFICATION_EVENT_TYPES = frozenset(
+    {
+        "FEDERATION_MODEL_AVAILABLE",
+        "FEDERATION_QUALIFICATION_TARGETED",
+        "FEDERATION_QUALIFICATION_SCORED",
+    }
 )
 
 SUITE_EVENT_TYPES = frozenset({"TEST_SUITE_PASS", "TEST_SUITE_FAIL"})
