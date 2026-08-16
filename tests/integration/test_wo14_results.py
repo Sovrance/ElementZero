@@ -294,13 +294,10 @@ def test_wo14_status_schema_and_honesty():
 
 
 def test_atlas_claim_lineage():
-    facts = []
-    atlas_dir = WO14_REPORTS / "atlas"
-    for path in sorted(atlas_dir.rglob("*.jsonl")):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                facts.append(json.loads(line))
-    contents = [f["content"] for f in facts if "content" in f]
+    facts = json.loads(
+        (WO14_REPORTS / "atlas" / "facts.json").read_text(encoding="utf-8")
+    )
+    contents = [f["content"] for f in facts if f.get("content")]
     kinds = {c.get("kind") for c in contents}
     assert {
         "RealValidationProtocolFact",

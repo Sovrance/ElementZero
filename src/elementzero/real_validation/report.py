@@ -516,7 +516,8 @@ def build_wo14_report(
     status = build_wo14_status(root=root)
     (out / STATUS_FILE).write_text(canonical_json(status) + "\n", encoding="utf-8")
     _write_wo14_events(out, root=root, status=status)
-    atlas_hashes = _build_atlas_lineage(root=root, out_dir=out / "atlas", status=status)
+    # write_atlas_bundle appends its own atlas/ directory under out.
+    atlas_hashes = _build_atlas_lineage(root=root, out_dir=out, status=status)
     (out / "atlas_bundle_hashes.json").write_text(
         canonical_json(atlas_hashes) + "\n", encoding="utf-8"
     )
