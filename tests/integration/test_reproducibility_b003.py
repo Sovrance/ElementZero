@@ -226,6 +226,11 @@ def test_committed_seal_is_reproducible_from_the_committed_snapshot(tmp_path, mo
     """
     if not (COMMITTED / SEALED_PREDICTIONS_FILE).is_file():
         pytest.skip("EZ-B003-v1 is preregistered but not sealed in this checkout")
+    from tests.helpers import refit_environment_mismatch
+
+    mismatch = refit_environment_mismatch(COMMITTED)
+    if mismatch:
+        pytest.skip(mismatch)
     sealed = json.loads((COMMITTED / SEALED_PREDICTIONS_FILE).read_text(encoding="utf-8"))
     monkeypatch.setenv("ELEMENTZERO_COMMIT", sealed["elementzero_commit"])
 

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero Frontier Model Candidate",
+  "type": "object",
+  "required": [
+    "candidate_id",
+    "family",
+    "physics_class",
+    "implementation_mode",
+    "source_type",
+    "source_url",
+    "publication",
+    "publication_date",
+    "data_or_code_available",
+    "license_review_required",
+    "supported_observables",
+    "published_validation",
+    "extrapolation_validation",
+    "uncertainty_native",
+    "computational_cost_class",
+    "elementzero_adapter_effort",
+    "scientific_independence_group",
+    "recommended_role",
+    "status"
+  ],
+  "properties": {
+    "candidate_id": {
+      "type": "string"
+    },
+    "family": {
+      "type": "string"
+    },
+    "physics_class": {
+      "type": "string"
+    },
+    "implementation_mode": {
+      "type": "string"
+    },
+    "source_type": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": "string"
+    },
+    "publication": {
+      "type": "string"
+    },
+    "publication_date": {
+      "type": "string"
+    },
+    "data_or_code_available": {
+      "type": "boolean"
+    },
+    "license_review_required": {
+      "type": "boolean"
+    },
+    "supported_observables": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "published_validation": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "extrapolation_validation": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "uncertainty_native": {
+      "type": "boolean"
+    },
+    "computational_cost_class": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "VERY_HIGH",
+        "UNKNOWN"
+      ]
+    },
+    "elementzero_adapter_effort": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "UNKNOWN"
+      ]
+    },
+    "scientific_independence_group": {
+      "type": "string"
+    },
+    "recommended_role": {
+      "type": "string",
+      "enum": [
+        "PHYSICS_BACKBONE",
+        "RESIDUAL_CHALLENGER",
+        "MODEL_COMBINATION",
+        "UQ_CHALLENGER",
+        "CONTROL_ONLY"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "RESEARCH",
+        "CANDIDATE",
+        "APPROVED_FOR_WO12",
+        "REJECTED",
+        "BLOCKED"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

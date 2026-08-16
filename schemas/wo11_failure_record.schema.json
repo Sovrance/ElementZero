@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ElementZero WO-11 Failure Record",
+  "type": "object",
+  "required": [
+    "failure_id",
+    "benchmark_id",
+    "protocol_version",
+    "model_id",
+    "criterion_id",
+    "observed_value",
+    "frozen_threshold",
+    "primary_class",
+    "secondary_classes",
+    "evidence",
+    "confidence",
+    "requires_protocol_change",
+    "notes"
+  ],
+  "properties": {
+    "failure_id": {
+      "type": "string"
+    },
+    "benchmark_id": {
+      "type": "string"
+    },
+    "protocol_version": {
+      "type": "string"
+    },
+    "model_id": {
+      "type": "string"
+    },
+    "criterion_id": {
+      "type": "string"
+    },
+    "observed_value": {},
+    "frozen_threshold": {},
+    "primary_class": {
+      "type": "string",
+      "enum": [
+        "MODEL_BIAS",
+        "MODEL_VARIANCE",
+        "UNCERTAINTY_UNDERCOVERAGE",
+        "UNCERTAINTY_OVERCOVERAGE",
+        "EXTRAPOLATION_DEPTH",
+        "FEATURE_INSUFFICIENCY",
+        "HYPERPARAMETER_SENSITIVITY",
+        "BENCHMARK_GEOMETRY",
+        "TARGET_SUPPORT_SPARSITY",
+        "METRIC_INSTABILITY",
+        "IMPLEMENTATION_DEFECT",
+        "INFRASTRUCTURE_FAILURE",
+        "INDETERMINATE"
+      ]
+    },
+    "secondary_classes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH"
+      ]
+    },
+    "requires_protocol_change": {
+      "type": "boolean"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

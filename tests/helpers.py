@@ -250,3 +250,48 @@ def synthetic_editions(tmp_path: Path) -> tuple[Path, Path]:
     old = write_ame_table(tmp_path / "old.mas03", old_rows, AME2003)
     later = write_ame_table(tmp_path / "later.mas20", later_rows, AME2020)
     return old, later
+
+
+# --------------------------------------------------------------------------- #
+# Refit-reproducibility environment guard (WO-11)                             #
+# --------------------------------------------------------------------------- #
+# Re-*scoring* sealed predictions is environment-independent at the canonical
+# 12-significant-digit precision, and WO-11 asserts that everywhere. Re-
+# *fitting* the GP models byte-for-byte additionally requires the exact
+# library stack the committed run recorded: a different BLAS/LAPACK build
+# moves fitted hyperparameters at the ULP level, which moves the fitted-model
+# manifest hash without moving any recorded metric. The committed-seal refit
+# tests are therefore only meaningful in the recorded environment, and they
+# skip — loudly, with the version delta in the reason — anywhere else.
+
+
+def refit_environment_mismatch(experiment_dir: Path) -> str | None:
+    """A skip reason when this runtime cannot reproduce a committed *fit*."""
+    import json as _json
+    import platform as _platform
+
+    from elementzero.identity_meta import runtime_library_versions
+
+    environment_file = experiment_dir / "environment.json"
+    if not environment_file.is_file():
+        return None
+    recorded = _json.loads(environment_file.read_text(encoding="utf-8"))
+    deltas = []
+    running = runtime_library_versions()
+    for name in ("numpy", "scipy", "sklearn"):
+        want = recorded.get("library_versions", {}).get(name)
+        have = running.get(name)
+        if want is not None and want != have:
+            deltas.append(f"{name} {have} != recorded {want}")
+    recorded_python = recorded.get("python_version", "")
+    if recorded_python.rsplit(".", 1)[0] != _platform.python_version().rsplit(".", 1)[0]:
+        deltas.append(
+            f"python {_platform.python_version()} != recorded {recorded_python}"
+        )
+    if not deltas:
+        return None
+    return (
+        "refit reproducibility requires the recorded environment; this runtime "
+        "differs (" + "; ".join(deltas) + "). The sealed-scoring replay is "
+        "still asserted by tests/integration/test_wo11_reproduce_b002_b003.py."
+    )
