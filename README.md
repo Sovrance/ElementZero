@@ -93,6 +93,33 @@ raw artifact -> training dataset -> knowledge freeze -> model fit
 `scoring_provenance.json` beside the metrics. Bundles use Atlas canonical JSON,
 so a rehydrated fact re-derives the Atlas content ID it was stored under.
 
+## EZ-B002 — Geographic Nuclear-Chart Holdout
+
+EZ-B001 asks whether the suite could predict later historical knowledge. EZ-B002
+asks whether it can reconstruct a region of the *known* chart when every truth
+value inside that region is withheld. Targets are the eligible nuclei inside a
+preregistered region of the (Z, N) lattice; training is everything outside it.
+
+```bash
+elementzero benchmark b002-select-regions --source snapshot.mas --edition AME2020 --output regions.json --candidates-output region_candidates.json
+elementzero benchmark b002-seal-experiment --source snapshot.mas --edition AME2020 --regions regions.json --dir experiments/EZ-B002-v1/
+elementzero benchmark b002-score-experiment --source snapshot.mas --edition AME2020 --dir experiments/EZ-B002-v1/
+```
+
+The single-region stages `b002-prepare`, `b002-freeze`, `b002-predict`,
+`b002-finalize`, and `b002-score` mirror the EZ-B001 five-process flow.
+
+Regions are generated, never hand-picked: fixed-size `z_span x n_span` windows
+anchored at every eligible nucleus, filtered by minimum targets and by training
+support on at least two faces, then ordered by `(Z band, -n_targets, region_id)`
+— source counts and identities only, never a metric. `region_manifest_hash`
+enters the KnowledgeFreeze, the ModelFitFact, and every certificate.
+
+Extrapolation depth is `nearest_training_L1`, and metrics are reported by exact
+depth, by region, and by model, with the worst region named. EZ-B002 v1 declares
+no accuracy pass/fail threshold: it is characterization. Details in
+`docs/benchmarks/ez-b002.md`.
+
 ## Architecture rule
 
 ```text

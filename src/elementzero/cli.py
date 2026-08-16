@@ -7,15 +7,27 @@ import json
 import sys
 from pathlib import Path
 
-from elementzero import BENCHMARK_EZ_B001, BENCHMARK_EZ_B001_TITLE, __version__
+from elementzero import BENCHMARK_EZ_B001, BENCHMARK_EZ_B001_TITLE, BENCHMARK_EZ_B002, __version__
 from elementzero.benchmark.b001_finalize import finalize
 from elementzero.benchmark.b001_freeze import freeze_training, load_freeze
 from elementzero.benchmark.b001_predict import load_targets, predict_run
 from elementzero.benchmark.b001_prepare import prepare_targets
 from elementzero.benchmark.b001_score import score_run
+from elementzero.benchmark.b002_finalize import finalize_region_run
+from elementzero.benchmark.b002_freeze import freeze_geographic_split, load_geographic_freeze
+from elementzero.benchmark.b002_predict import load_region_targets, run_region_suite
+from elementzero.benchmark.b002_prepare import prepare_geographic_split
+from elementzero.benchmark.b002_score import score_region_suite
 from elementzero.benchmark.model_suite import run_suite, score_suite
+from elementzero.benchmark.regions import Region
 from elementzero.evidence.hashing import canonical_json
 from elementzero.experiments.aggregate import write_aggregate
+from elementzero.experiments.b002_runner import (
+    read_regions,
+    score_b002,
+    seal_b002,
+    select_regions_for_source,
+)
 from elementzero.experiments.epochs import epoch_for
 from elementzero.experiments.preregister import (
     validate_preregistration,
@@ -174,6 +186,88 @@ def build_parser() -> argparse.ArgumentParser:
     suite_score.add_argument("--truth-source", required=True)
     suite_score.add_argument("--edition", default="AME2020")
     suite_score.add_argument("--out", default=None, help="defaults to the suite directory")
+
+    # ------------------------------------------------------------------ #
+    # EZ-B002 geographic nuclear-chart holdout (WO-09)                    #
+    # ------------------------------------------------------------------ #
+
+    b002_regions = bsub.add_parser(
+        "b002-select-regions",
+        help="deterministically select EZ-B002 regions from one snapshot and write regions.json",
+    )
+    b002_regions.add_argument("--source", required=True, help="frozen mass snapshot")
+    b002_regions.add_argument("--edition", default="AME2020")
+    b002_regions.add_argument("--output", required=True, help="regions.json to write")
+    b002_regions.add_argument("--candidates-output", default=None, help="full candidate report")
+    b002_regions.add_argument("--source-relpath", default=None)
+    b002_regions.add_argument("--z-span", type=int, default=None)
+    b002_regions.add_argument("--n-span", type=int, default=None)
+    b002_regions.add_argument("--min-targets", type=int, default=None)
+    b002_regions.add_argument("--min-supported-sides", type=int, default=None)
+    b002_regions.add_argument("--per-band", type=int, default=None)
+    b002_regions.add_argument(
+        "--allow-missing-bands",
+        action="store_true",
+        help="report a band with no candidate instead of refusing (diagnostics only)",
+    )
+
+    b002_prepare = bsub.add_parser(
+        "b002-prepare",
+        help="split one snapshot around one region into identity-only targets plus a split manifest",
+    )
+    b002_prepare.add_argument("--source", required=True)
+    b002_prepare.add_argument("--edition", default="AME2020")
+    b002_prepare.add_argument("--regions", required=True, help="preregistered regions.json")
+    b002_prepare.add_argument("--region-id", required=True)
+    b002_prepare.add_argument("--out", required=True, help="region directory")
+
+    b002_freeze = bsub.add_parser(
+        "b002-freeze", help="build the KnowledgeFreeze for one geographic split"
+    )
+    b002_freeze.add_argument("--source", required=True)
+    b002_freeze.add_argument("--edition", default="AME2020")
+    b002_freeze.add_argument("--split-manifest", required=True)
+    b002_freeze.add_argument("--output", required=True)
+
+    b002_predict = bsub.add_parser(
+        "b002-predict",
+        help="fit outside one region and predict inside it, one sealed run per model",
+    )
+    b002_predict.add_argument("--source", required=True)
+    b002_predict.add_argument("--edition", default="AME2020")
+    b002_predict.add_argument("--freeze", required=True)
+    b002_predict.add_argument("--targets", required=True)
+    b002_predict.add_argument("--out", required=True, help="suite directory")
+
+    b002_finalize = bsub.add_parser("b002-finalize", help="seal one EZ-B002 region run")
+    b002_finalize.add_argument("--run", required=True)
+
+    b002_score = bsub.add_parser(
+        "b002-score", help="score every sealed model run of one region and compare them"
+    )
+    b002_score.add_argument("--suite", required=True, help="region runs directory")
+    b002_score.add_argument("--source", required=True, help="the frozen snapshot")
+    b002_score.add_argument("--edition", default="AME2020")
+    b002_score.add_argument("--out", default=None)
+
+    b002_seal = bsub.add_parser(
+        "b002-seal-experiment",
+        help="split, freeze, predict, and seal every preregistered region (no region truth read)",
+    )
+    b002_seal.add_argument("--source", required=True)
+    b002_seal.add_argument("--edition", default="AME2020")
+    b002_seal.add_argument("--regions", required=True)
+    b002_seal.add_argument("--dir", required=True, help="experiment directory")
+    b002_seal.add_argument("--created-at", default=None, help="pin timestamps for reproducibility")
+
+    b002_score_exp = bsub.add_parser(
+        "b002-score-experiment",
+        help="score every sealed region and write the all-region aggregate",
+    )
+    b002_score_exp.add_argument("--source", required=True)
+    b002_score_exp.add_argument("--edition", default="AME2020")
+    b002_score_exp.add_argument("--dir", required=True, help="experiment directory")
+    b002_score_exp.add_argument("--created-at", default=None)
 
     report = sub.add_parser("report", help="build repository reports from committed artifacts")
     rsub = report.add_subparsers(dest="report_command", required=True)
@@ -388,8 +482,169 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0
+    if cmd == "b002-select-regions":
+        overrides = {
+            "z_span": args.z_span,
+            "n_span": args.n_span,
+            "min_targets": args.min_targets,
+            "min_supported_sides": args.min_supported_sides,
+            "per_band": args.per_band,
+        }
+        result = select_regions_for_source(
+            source=args.source,
+            edition_id=args.edition,
+            output=args.output,
+            candidates_output=args.candidates_output,
+            source_relpath=args.source_relpath,
+            allow_missing_bands=args.allow_missing_bands,
+            **{k: v for k, v in overrides.items() if v is not None},
+        )
+        manifest = result["manifest"]
+        print(
+            canonical_json(
+                {
+                    "benchmark_id": BENCHMARK_EZ_B002,
+                    "n_candidates": result["generated"]["n_candidates"],
+                    "region_ids": manifest["region_ids"],
+                    "region_manifest_hash": manifest["region_manifest_hash"],
+                }
+            )
+        )
+        return 0
+    if cmd == "b002-prepare":
+        regions = read_regions(args.regions)
+        region = _region_by_id(regions, args.region_id)
+        result = prepare_geographic_split(
+            source=args.source,
+            edition_id=args.edition,
+            region=region,
+            region_manifest_hash=regions["region_manifest_hash"],
+            out_dir=args.out,
+        )
+        manifest = result["split_manifest"]
+        print(
+            canonical_json(
+                {
+                    "region_id": manifest["region_id"],
+                    "n_targets": manifest["n_targets"],
+                    "n_training": manifest["n_training"],
+                    "split_digest": manifest["split_digest"],
+                }
+            )
+        )
+        return 0
+    if cmd == "b002-freeze":
+        geographic = freeze_geographic_split(
+            source=args.source,
+            edition_id=args.edition,
+            split_manifest=args.split_manifest,
+            output=args.output,
+        )
+        print(
+            canonical_json(
+                {
+                    "freeze_id": geographic.freeze_id,
+                    "region_id": geographic.region_id,
+                    "n_train": len(geographic.freeze.training_nuclide_ids),
+                    "split_digest": geographic.split_digest,
+                }
+            )
+        )
+        return 0
+    if cmd == "b002-predict":
+        suite = run_region_suite(
+            geographic_freeze=load_geographic_freeze(args.freeze),
+            targets=load_region_targets(args.targets),
+            source=args.source,
+            edition_id=args.edition,
+            suite_dir=args.out,
+        )
+        print(
+            canonical_json(
+                {
+                    "model_suite_id": suite["model_suite_id"],
+                    "model_ids": suite["model_ids"],
+                    "region_id": suite["region_id"],
+                    "suite_dir": suite["suite_dir"],
+                }
+            )
+        )
+        return 0
+    if cmd == "b002-finalize":
+        marker = finalize_region_run(args.run)
+        print(canonical_json({"marker": marker["marker"], "region_id": marker["region_id"]}))
+        return 0
+    if cmd == "b002-score":
+        comparison = score_region_suite(
+            suite_dir=args.suite,
+            truth_source=args.source,
+            truth_edition_id=args.edition,
+            out_dir=args.out,
+        )
+        print(
+            canonical_json(
+                {
+                    "region_id": comparison["region_id"],
+                    "columns": comparison["columns"],
+                    "rows": [
+                        {c: row[c] for c in comparison["columns"]} for row in comparison["rows"]
+                    ],
+                }
+            )
+        )
+        return 0
+    if cmd == "b002-seal-experiment":
+        result = seal_b002(
+            source=args.source,
+            edition_id=args.edition,
+            regions_path=args.regions,
+            experiment_dir=args.dir,
+            created_at=args.created_at,
+        )
+        print(
+            canonical_json(
+                {
+                    "experiment_dir": result["experiment_dir"],
+                    "region_ids": result["region_ids"],
+                    "sealed_predictions_sha256": result["sealed_predictions_sha256"],
+                    "state": result["sealed"]["state"],
+                }
+            )
+        )
+        return 0
+    if cmd == "b002-score-experiment":
+        result = score_b002(
+            source=args.source,
+            edition_id=args.edition,
+            experiment_dir=args.dir,
+            created_at=args.created_at,
+        )
+        aggregate = result["aggregate"]
+        print(
+            canonical_json(
+                {
+                    "experiment_dir": result["experiment_dir"],
+                    "region_ids": aggregate["region_ids"],
+                    "model_ids": aggregate["model_ids"],
+                    "n_scored_targets": aggregate["n_scored_targets"],
+                    "columns": aggregate["columns"],
+                    "rows": [
+                        {c: row[c] for c in aggregate["columns"]} for row in aggregate["rows"]
+                    ],
+                }
+            )
+        )
+        return 0
     parser.error(f"unknown benchmark command {cmd}")
     return 2
+
+
+def _region_by_id(regions: dict, region_id: str) -> Region:
+    for region in regions["regions"]:
+        if region.region_id == region_id:
+            return region
+    known = [r.region_id for r in regions["regions"]]
+    raise SystemExit(f"region {region_id!r} is not in the manifest; declared regions are {known}")
 
 
 if __name__ == "__main__":

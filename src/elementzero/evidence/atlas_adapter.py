@@ -365,6 +365,7 @@ class AtlasEvidenceAdapter:
         training_dataset_fact_id: str,
         atlas_pir_ref: str | None = None,
         elementzero_commit: str | None = None,
+        geographic_split: Mapping[str, Any] | None = None,
         status: str | FactStatus = FactStatus.SUPPORTED,
     ) -> Fact:
         analyzer = _sound_analyzer()
@@ -381,6 +382,11 @@ class AtlasEvidenceAdapter:
             "atlas_pir_ref": atlas_pir_ref or self.atlas_pir_ref,
             "elementzero_commit": elementzero_commit or self.elementzero_commit,
         }
+        if geographic_split is not None:
+            # EZ-B002 freezes a region of the chart instead of an edition
+            # boundary. The key is absent for historical freezes, so a B001 fact
+            # ID stays exactly what it was.
+            content["geographic_split"] = dict(geographic_split)
         depends_on = (training_dataset_fact_id,)
         assumptions = (f"freeze:{freeze_id}",)
         return Fact(
@@ -415,6 +421,8 @@ class AtlasEvidenceAdapter:
         knowledge_freeze_fact_id: str,
         training_dataset_fact_id: str,
         uncertainty_method: str | None = None,
+        region_id: str | None = None,
+        region_manifest_hash: str | None = None,
         status: str | FactStatus = FactStatus.UNRESOLVED,
     ) -> Fact:
         """Model-conditioned fit result: E3, HEURISTIC, warned."""
@@ -431,6 +439,11 @@ class AtlasEvidenceAdapter:
             "runtime_versions": dict(runtime_versions),
             "uncertainty_method": uncertainty_method,
         }
+        if region_id is not None:
+            # WO-09 section 11: the withheld region is part of the fit's identity.
+            content["region_id"] = region_id
+        if region_manifest_hash is not None:
+            content["region_manifest_hash"] = region_manifest_hash
         depends_on = (knowledge_freeze_fact_id, training_dataset_fact_id)
         assumptions = (f"freeze:{freeze_id}", f"model:{model_id}")
         return Fact(
