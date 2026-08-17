@@ -25,7 +25,21 @@ from elementzero.physics_backends.skyrme_hfb import (
     UPSTREAM_PATCH,
 )
 
-PREREG_ID = "ez-wo15b-skyrme-massfit-prereg-v1"
+PREREG_ID = "ez-wo15b-skyrme-massfit-prereg-v2"
+
+SUPERSEDES = "ez-wo15b-skyrme-massfit-prereg-v1"
+SUPERSEDE_REASON = (
+    "v1 declared the pairing box as (-500, -150) keV fm^3, which excluded "
+    "its own starting point: WO-15's REFIT_STRICT fit drove CpV0_1 to -140, "
+    "sitting on that earlier fit's box edge. The first sensitivity run "
+    "refused the baseline vector and aborted before a single solver "
+    "evaluation completed, so no result existed to tune toward. The pairing "
+    "bounds are corrected to (-500, -100), which still enforces the physical "
+    "constraint that pairing is attractive. This is a specification repair "
+    "made against zero evidence, not a bound widened to escape a fit — the "
+    "distinction the WO-15 pairing result turned on, and the reason the "
+    "correction is recorded here rather than applied silently"
+)
 
 # Physical bounds. Empirical ranges from the nuclear-matter literature,
 # deliberately generous at the edges but finite everywhere.
@@ -38,8 +52,8 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     "SMASS_NM": (0.80, 1.40),        # isoscalar effective mass ratio
     "CrDr_0": (-100.0, -40.0),       # isoscalar surface
     "CrDr_1": (-40.0, 60.0),         # isovector surface
-    "CpV0_0": (-500.0, -150.0),      # neutron pairing
-    "CpV0_1": (-500.0, -150.0),      # proton pairing
+    "CpV0_0": (-500.0, -100.0),      # neutron pairing, attractive
+    "CpV0_1": (-500.0, -100.0),      # proton pairing, attractive
     "CrdJ_0": (-130.0, -60.0),       # isoscalar spin-orbit
     "CrdJ_1": (-80.0, 20.0),         # isovector spin-orbit
 }
@@ -108,10 +122,36 @@ PHYSICAL_CONSTRAINTS = (
 )
 
 
+def assert_baseline_in_box() -> None:
+    """A preregistration whose own starting point is illegal is a bug.
+
+    Checked at build time so the inconsistency surfaces here rather than
+    hours into a solver campaign.
+    """
+    from elementzero.errors import ProtocolError
+
+    outside = {
+        name: (value, PARAMETER_BOUNDS[name])
+        for name, value in SKYRME_BASELINE_INM.items()
+        if not (
+            PARAMETER_BOUNDS[name][0] <= value <= PARAMETER_BOUNDS[name][1]
+        )
+    }
+    if outside:
+        raise ProtocolError(
+            f"PREREG_BASELINE_OUT_OF_BOX: {outside}; the preregistration "
+            "cannot exclude the vector it starts from"
+        )
+
+
 def build_preregistration() -> dict[str, Any]:
     """The hashed stream-A preregistration record."""
+    assert_baseline_in_box()
     record = {
         "prereg_id": PREREG_ID,
+        "supersedes": SUPERSEDES,
+        "supersede_reason": SUPERSEDE_REASON,
+        "objective_evaluations_before_supersede": 0,
         "baseline_source": BASELINE_SOURCE,
         "upstream_patch": UPSTREAM_PATCH,
         "parameter_names": list(INM_PARAMETER_NAMES),
