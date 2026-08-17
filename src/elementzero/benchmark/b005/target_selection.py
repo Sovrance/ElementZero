@@ -80,12 +80,45 @@ ODD_POLICY = (
 
 Z_REGIONS = ((8, 40), (40, 70), (70, 100), (100, 140))
 
+# Compute budget, declared before any target is predicted. The eligible
+# population is far larger than the work order's preferred size, and
+# every target costs several solver runs per family; capping keeps the
+# campaign finishable. The cap is a deterministic stride through each
+# stratum in canonical (Z, N) order — not a sample, not a filter on
+# anything a model does, and reproducible from identity alone.
+TARGET_CAP = 60
+TARGET_CAP_RULE = (
+    f"ez-wo15b-b005-cap-v1: at most {TARGET_CAP} targets, allocated across "
+    "Z regions in proportion to the eligible population and drawn by an "
+    "even stride through each region in canonical (Z, N) order. The cap is "
+    "a compute budget fixed before prediction; it never consults a model "
+    "output, a residual, or a truth value, and the full eligible roster is "
+    "recorded alongside so the reduction is auditable"
+)
+
 
 def _z_region(z: int) -> str:
     for low, high in Z_REGIONS:
         if low <= z < high:
             return f"Z{low}-{high}"
     return f"Z{Z_REGIONS[-1][1]}+"
+
+
+def _apply_cap(eligible: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """An even stride through each Z region, in canonical order."""
+    if len(eligible) <= TARGET_CAP:
+        return eligible
+    by_region: dict[str, list[dict[str, Any]]] = {}
+    for row in eligible:
+        by_region.setdefault(row["z_region"], []).append(row)
+
+    chosen: list[dict[str, Any]] = []
+    for region in sorted(by_region):
+        members = sorted(by_region[region], key=lambda r: (r["Z"], r["N"]))
+        share = max(1, round(TARGET_CAP * len(members) / len(eligible)))
+        stride = max(1, len(members) // share)
+        chosen.extend(members[::stride][:share])
+    return sorted(chosen, key=lambda r: (r["Z"], r["N"]))
 
 
 def select_targets(
@@ -100,6 +133,9 @@ def select_targets(
         (root / CHRONOLOGY_RELPATH).read_text(encoding="utf-8")
     )
     known_1995 = set(chronology["sources"]["AME1995"]["known_nuclide_ids"])
+    eligible_1995 = set(
+        chronology["sources"]["AME1995"]["eligible_nuclide_ids"]
+    )
     eligible_2020 = set(
         chronology["sources"]["AME2020"]["eligible_nuclide_ids"]
     )
@@ -115,23 +151,40 @@ def select_targets(
     forbidden = {i for ids in excluded.values() for i in ids}
     forbidden |= {i for ids in fit_identities.values() for i in ids}
 
-    targets = []
+    eligible: list[dict[str, Any]] = []
     for nuclide_id in sorted(eligible_2020):
-        if nuclide_id in known_1995 or nuclide_id in forbidden:
+        # The freeze must hold no *measured* mass for the target.
+        if nuclide_id in eligible_1995 or nuclide_id in forbidden:
             continue
         z, n = parse_nuclide_id(nuclide_id)
         if z < 8 or z % 2 or n % 2:
             continue
-        targets.append(
+        eligible.append(
             {
                 "nuclide_id": nuclide_id,
                 "Z": z,
                 "N": n,
                 "z_region": _z_region(z),
                 "frontier_direction": "neutron_rich" if n > z else "proton_rich",
+                "blindness_class": (
+                    STRICT_CHRONOLOGICAL_BLIND
+                    if nuclide_id not in known_1995
+                    else MEASUREMENT_ERA_BLIND
+                ),
             }
         )
 
+    targets = _apply_cap(eligible)
+    strata_counts = {
+        cls: sum(1 for t in targets if t["blindness_class"] == cls)
+        for cls in BLINDNESS_CLASSES
+    }
+    # The claim can only be as strong as its weakest target.
+    claim_blindness_class = (
+        STRICT_CHRONOLOGICAL_BLIND
+        if strata_counts[MEASUREMENT_ERA_BLIND] == 0 and targets
+        else MEASUREMENT_ERA_BLIND
+    )
     target_ids = [t["nuclide_id"] for t in targets]
     regions = sorted({t["z_region"] for t in targets})
     directions = sorted({t["frontier_direction"] for t in targets})
@@ -143,6 +196,16 @@ def select_targets(
         "target_rule_id": TARGET_RULE_ID,
         "target_rule": TARGET_RULE,
         "odd_policy": ODD_POLICY,
+        "blindness_taxonomy": BLINDNESS_TAXONOMY,
+        "claim_blindness_class": claim_blindness_class,
+        "strict_exhaustion_finding": STRICT_EXHAUSTION_FINDING,
+        "blindness_strata": strata_counts,
+        "target_cap": TARGET_CAP,
+        "target_cap_rule": TARGET_CAP_RULE,
+        "n_eligible_before_cap": len(eligible),
+        "eligible_nuclide_ids_before_cap": [
+            t["nuclide_id"] for t in eligible
+        ],
         "n_targets": len(targets),
         "targets": targets,
         "target_nuclide_ids": target_ids,
