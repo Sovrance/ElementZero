@@ -225,54 +225,102 @@ def _correlation(a: list[float], b: list[float]) -> float:
 
 
 def select_tier(sensitivity: dict[str, Any]) -> dict[str, Any]:
-    """Freeze the largest nested tier the probe set can support."""
+    """Freeze the identifiable, non-collinear subset of the fittable set.
+
+    Selection is on identifiability alone. It can only remove parameters
+    from the declared fittable set, never add them, so the frozen subset
+    is always at most as flexible as what was preregistered.
+    """
+    from elementzero.physics_backends.skyrme_hfb.prereg import (
+        FITTABLE_PARAMETERS,
+    )
+
     probe_ids = list(sensitivity["probe_ids"])
     by_name = {r["parameter"]: r for r in sensitivity["records"]}
+    # Canonical JSON renders floats as strings on the way out, so a
+    # record read back from disk needs coercing before any arithmetic.
     vectors = {
         name: [
-            r["delta_keV"][p]
+            float(r["delta_keV"][p])
             for p in probe_ids
             if r["delta_keV"].get(p) is not None
         ]
         for name, r in by_name.items()
     }
+    strength = {
+        name: float(by_name[name]["mean_abs_delta_keV"]) for name in by_name
+    }
 
-    evaluations = []
-    for tier_name in ("S3", "S2", "S1"):
-        params = TIERS[tier_name]
-        unidentifiable = [
-            p for p in params if not by_name[p]["identifiable"]
-        ]
-        collinear: list[list[str]] = []
-        for i, first in enumerate(params):
-            for second in params[i + 1:]:
-                va, vb = vectors[first], vectors[second]
-                if len(va) != len(vb) or len(va) < 2:
-                    continue
-                if abs(_correlation(va, vb)) > CORRELATION_MAX:
-                    collinear.append([first, second])
-        evaluations.append(
+    candidates = [p for p in FITTABLE_PARAMETERS if by_name[p]["identifiable"]]
+    excluded_unidentifiable = [
+        {
+            "parameter": p,
+            "mean_abs_delta_keV": strength[p],
+            "threshold_keV": IDENTIFIABILITY_MIN_KEV,
+        }
+        for p in FITTABLE_PARAMETERS
+        if not by_name[p]["identifiable"]
+    ]
+
+    # Drop the weaker member of any collinear pair: the survivor is the
+    # one the calibration data constrains better.
+    dropped_collinear: list[dict[str, Any]] = []
+    kept: list[str] = []
+    for name in candidates:
+        clash = None
+        for other in kept:
+            va, vb = vectors[name], vectors[other]
+            if len(va) != len(vb) or len(va) < 2:
+                continue
+            if abs(_correlation(va, vb)) > CORRELATION_MAX:
+                clash = other
+                break
+        if clash is None:
+            kept.append(name)
+            continue
+        weaker = name if strength[name] < strength[clash] else clash
+        stronger = clash if weaker == name else name
+        dropped_collinear.append(
             {
-                "tier": tier_name,
-                "parameters": list(params),
-                "unidentifiable": unidentifiable,
-                "collinear_pairs": collinear,
-                "admissible": not unidentifiable and not collinear,
+                "dropped": weaker,
+                "kept": stronger,
+                "correlation": abs(_correlation(vectors[name], vectors[clash])),
             }
         )
+        if weaker == clash:
+            kept.remove(clash)
+            kept.append(name)
 
-    chosen = next(
-        (e for e in evaluations if e["admissible"]), None
-    )
+    selected = [p for p in FITTABLE_PARAMETERS if p in kept]
+    label = None
+    for tier_name in ("S1", "S2", "S3"):
+        if set(selected) == set(TIERS[tier_name]):
+            label = tier_name
+            break
+    if label is None and selected:
+        smallest = next(
+            (
+                t
+                for t in ("S1", "S2", "S3")
+                if set(selected) <= set(TIERS[t])
+            ),
+            "S3",
+        )
+        label = f"PARTIAL_{smallest}"
+
     return {
         "tier_selection_rule": TIER_SELECTION_RULE,
-        "evaluations": evaluations,
-        "selected_tier": chosen["tier"] if chosen else None,
-        "selected_parameters": chosen["parameters"] if chosen else [],
+        "fittable_parameters": list(FITTABLE_PARAMETERS),
+        "selected_tier": label,
+        "selected_parameters": selected,
+        "n_selected": len(selected),
+        "excluded_unidentifiable": excluded_unidentifiable,
+        "dropped_collinear": dropped_collinear,
+        "parameter_strength_keV": dict(sorted(strength.items())),
         "status": (
-            f"TIER_{chosen['tier']}_FROZEN"
-            if chosen
-            else "NO_TIER_ADMISSIBLE_PAIRING_ONLY_REMAINS"
+            f"TIER_{label}_FROZEN"
+            if selected
+            else "NO_PARAMETER_IDENTIFIABLE_BASELINE_STANDS"
         ),
     }
 

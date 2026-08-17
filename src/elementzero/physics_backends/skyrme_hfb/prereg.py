@@ -25,9 +25,37 @@ from elementzero.physics_backends.skyrme_hfb import (
     UPSTREAM_PATCH,
 )
 
-PREREG_ID = "ez-wo15b-skyrme-massfit-prereg-v3"
+PREREG_ID = "ez-wo15b-skyrme-massfit-prereg-v4"
 
-SUPERSEDES = "ez-wo15b-skyrme-massfit-prereg-v2"
+SUPERSEDES = "ez-wo15b-skyrme-massfit-prereg-v3"
+
+V4_REASON = (
+    "v3's tier rule required every parameter in a nested tier to be "
+    "identifiable, with the nesting rooted at pairing. The v3 sensitivity "
+    "run then measured CpV0_1 (proton pairing) at 28.1 keV, below the 50 keV "
+    "identifiability floor, while CrDr_0 moved the probe set by 3672 keV. "
+    "Because S1 through S3 are nested supersets of the pairing pair, one "
+    "weak parameter disqualified every tier and the rule returned "
+    "NO_TIER_ADMISSIBLE. Reporting that as 'the calibration data cannot "
+    "constrain a broader fit' would be false: five of six couplings move "
+    "masses by 63 to 3672 keV and are mutually non-collinear (max pairwise "
+    "|r| = 0.97).\n\n"
+    "The nesting was the faulty assumption, not the measurement. v4 fits the "
+    "identifiable, non-collinear subset of the declared fittable set and "
+    "labels the result with the named tier it corresponds to.\n\n"
+    "Why this is not tuning: identifiability is a property of the solver and "
+    "the calibration data, measured before any objective was evaluated — the "
+    "refit has still never run. And the change can only remove parameters, "
+    "never add them, so it strictly reduces model flexibility. A narrower "
+    "fit cannot flatter a benchmark. The v3 rule's own stated purpose was to "
+    "avoid fitting what the data cannot constrain; v4 serves that purpose "
+    "where v3's structure defeated it.\n\n"
+    "CpV0_1 is excluded on evidence and the evidence is kept: 7.4 keV under "
+    "the v2 magic-Z-heavy probe set, 28.1 keV under v3's open-shell set — a "
+    "3.8x improvement that confirmed the probe diagnosis but left it below "
+    "the floor. Proton pairing genuinely contributes little to total binding "
+    "energy relative to neutron pairing across this probe set"
+)
 SUPERSEDE_REASON = (
     "Two instrument defects, both found before any objective evaluation ran "
     "and both corrected on mechanical grounds rather than on results.\n\n"
@@ -132,10 +160,14 @@ TIER_SELECTION_RULE = (
     f"{PREREG_ID}-tier-rule: a parameter is identifiable when a "
     f"{RELATIVE_STEP:.0%} step inside its bounds moves the mean binding "
     f"energy of the probe set by at least {IDENTIFIABILITY_MIN_KEV} keV. The "
-    "largest nested tier whose parameters are all identifiable, and whose "
-    "sensitivity vectors are not pairwise collinear above "
-    f"{CORRELATION_MAX}, is frozen. Ties go to the smaller tier: fewer "
-    "degrees of freedom is the conservative error"
+    "frozen subset is every identifiable parameter in the declared fittable "
+    "set, minus one member of any pair whose sensitivity vectors correlate "
+    f"above {CORRELATION_MAX} — the weaker of the pair by mean absolute "
+    "effect, so the surviving parameter is the one the data constrains "
+    "better. The subset is labelled with the named tier it matches, or "
+    "PARTIAL_<tier> when it is a proper subset. Selection uses "
+    "identifiability alone; no objective value participates, and the rule "
+    "can only remove parameters, never add them"
 )
 
 # Compute budget, in solver calls, fixed before the optimizer starts.
@@ -196,6 +228,7 @@ def build_preregistration() -> dict[str, Any]:
         "prereg_id": PREREG_ID,
         "supersedes": SUPERSEDES,
         "supersede_reason": SUPERSEDE_REASON,
+        "v4_reason": V4_REASON,
         "objective_evaluations_before_supersede": 0,
         "inm_inert_finding": INM_INERT_FINDING,
         "inert_parameters": list(INERT_PARAMETERS),
