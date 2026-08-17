@@ -1,0 +1,136 @@
+{
+  "committed_artifact": {
+    "path": "reports/v2/sigma_defect.json",
+    "recorded_environment": {
+      "numpy": "2.4.4",
+      "python": "3.12.3",
+      "scikit_learn": "1.8.0"
+    },
+    "sha256": "fad034feff1051898ed3664c0fe7b2a4ac5ef5495a712ca59645d1bd46e4b497"
+  },
+  "conclusion": "Every version the pin names matched, and every verdict, dispersion class and failure list replayed identically. The BYTES did not, and the two prediction paths did not degrade equally. The v1 path (optimizer=None) reproduced to about one part in 1e15 - ULP noise from OpenBLAS, whose threaded reductions sum partial results in a thread-count-dependent order and whose kernels are runtime-dispatched on CPU SIMD level; floating-point addition is not associative, so summation order is part of the result. The v2 path reproduced only to about one part in 1e6, a thousand-fold amplification, because v2 LEARNS its hyperparameters: L-BFGS-B reads a gradient perturbed at the last place and converges to a slightly different point in kernel space, so the learned amplitude, length scales and noise all shift. That amplification is the direct cost of the repair protocol.json already names - 'v1 achieved determinism by refusing to fit, which caused the sigma defect; v2 achieves it by recording the fit' - and it is a good trade: a sigma reproducible to 1e-6 and honest beats one reproducible to 1e-16 and vacuous. The consequence for the protocol is that interpreter and library versions do not determine the bytes of any fitted model. Byte replay is reproducible per host, on an identical BLAS build at a fixed thread count, and is not portable across hosts at all; findings replay is portable within declared per-path tolerances. protocol/protocol.json now pins the BLAS backend and thread count and states both levels separately. The committed sigma_defect.json predates that extension and is left exactly as recorded, not re-recorded to flatter the new pin.",
+  "declared_replay_tolerance": {
+    "atol": 1e-06,
+    "rtol_by_prediction_path": {
+      "v1": 1e-09,
+      "v2": 1e-05
+    },
+    "rule": "|reference - candidate| <= atol + rtol * |candidate|"
+  },
+  "diagnostic": "ez-v2-replay-environment-v1",
+  "question": "does the environment pin declared in protocol/protocol.json determine the bytes of a v2 artifact?",
+  "replay_environment": {
+    "blas": {
+      "name": "scipy-openblas",
+      "simd_baseline": [
+        "X86_V2"
+      ],
+      "simd_found": [
+        "X86_V3",
+        "X86_V4"
+      ],
+      "version": "0.3.31.188.0"
+    },
+    "cpu_count": 4,
+    "machine": "x86_64",
+    "numpy": "2.4.4",
+    "platform": "Linux-6.18.5-fc-v20-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "scikit_learn": "1.8.0"
+  },
+  "result": {
+    "byte_replay_across_thread_counts": false,
+    "distinct_byte_streams_observed": 2,
+    "distinct_sha256": [
+      "3eafc7dc89fce2c150c47c49ce5f52daa32f677fce9cb90414d36c4830598d1f",
+      "ecae993705b7531c25f47abd4d89c1eb34e778da68716332093d90965dc9de1c"
+    ],
+    "findings_replay": true
+  },
+  "runs": [
+    {
+      "blas_threads": 1,
+      "byte_identical_to_committed": false,
+      "prediction_paths": {
+        "v1": {
+          "declared_atol": 1e-06,
+          "declared_rtol": 1e-09,
+          "exceedances": [],
+          "observed_max_absolute_deviation": 2.9103830456733704e-11,
+          "observed_max_relative_deviation": 3.8563248277839964e-14,
+          "within_declared_tolerance": true
+        },
+        "v2": {
+          "declared_atol": 1e-06,
+          "declared_rtol": 1e-05,
+          "exceedances": [],
+          "observed_max_absolute_deviation": 9.951471778180121e-05,
+          "observed_max_relative_deviation": 2.4627558582911892e-05,
+          "within_declared_tolerance": true
+        }
+      },
+      "sha256": "ecae993705b7531c25f47abd4d89c1eb34e778da68716332093d90965dc9de1c",
+      "v1_median_sigma_keV": 66829.97134221082,
+      "v1_std_z": 0.0012683348211886996,
+      "v2_median_sigma_keV": 54.4648502652986,
+      "v2_std_z": 0.9354712938495892,
+      "verdicts_identical_to_committed": true
+    },
+    {
+      "blas_threads": 2,
+      "byte_identical_to_committed": false,
+      "prediction_paths": {
+        "v1": {
+          "declared_atol": 1e-06,
+          "declared_rtol": 1e-09,
+          "exceedances": [],
+          "observed_max_absolute_deviation": 2.9103830456733704e-11,
+          "observed_max_relative_deviation": 3.8563248277839964e-14,
+          "within_declared_tolerance": true
+        },
+        "v2": {
+          "declared_atol": 1e-06,
+          "declared_rtol": 1e-05,
+          "exceedances": [],
+          "observed_max_absolute_deviation": 9.951471778180121e-05,
+          "observed_max_relative_deviation": 2.4627558866171883e-05,
+          "within_declared_tolerance": true
+        }
+      },
+      "sha256": "3eafc7dc89fce2c150c47c49ce5f52daa32f677fce9cb90414d36c4830598d1f",
+      "v1_median_sigma_keV": 66829.97134221076,
+      "v1_std_z": 0.0012683348211886948,
+      "v2_median_sigma_keV": 54.4648502652986,
+      "v2_std_z": 0.9354712938495717,
+      "verdicts_identical_to_committed": true
+    },
+    {
+      "blas_threads": 4,
+      "byte_identical_to_committed": false,
+      "prediction_paths": {
+        "v1": {
+          "declared_atol": 1e-06,
+          "declared_rtol": 1e-09,
+          "exceedances": [],
+          "observed_max_absolute_deviation": 2.9103830456733704e-11,
+          "observed_max_relative_deviation": 3.8563248277839964e-14,
+          "within_declared_tolerance": true
+        },
+        "v2": {
+          "declared_atol": 1e-06,
+          "declared_rtol": 1e-05,
+          "exceedances": [],
+          "observed_max_absolute_deviation": 9.951471778180121e-05,
+          "observed_max_relative_deviation": 2.4627558866171883e-05,
+          "within_declared_tolerance": true
+        }
+      },
+      "sha256": "3eafc7dc89fce2c150c47c49ce5f52daa32f677fce9cb90414d36c4830598d1f",
+      "v1_median_sigma_keV": 66829.97134221076,
+      "v1_std_z": 0.0012683348211886948,
+      "v2_median_sigma_keV": 54.4648502652986,
+      "v2_std_z": 0.9354712938495717,
+      "verdicts_identical_to_committed": true
+    }
+  ]
+}

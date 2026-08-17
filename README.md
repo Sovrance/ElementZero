@@ -8,6 +8,27 @@ v0.2 implements **EZ-B001 — Historical Nuclear Mass Prediction** (legacy alias
 `ZME-B001`) with a no-leakage prepare / freeze / predict / finalize / score
 protocol.
 
+## Protocol v2.0.0 (in progress)
+
+v2 re-specifies the project after an external adjudication of the v1 evidence:
+calibration becomes a gate, the physics backbone becomes an injected dependency,
+a kink-capable model class is added for shell localization, the blindness ledger
+becomes enforced code, and the hyperheavy endgame leaves the benchmark ladder
+for a deferred track behind Gate G4. Start at **`docs/v2/README.md`**.
+
+v2 contains no run results and no scientific evidence about real nuclei. Every
+frozen v1 artifact stays frozen: v1 experiments are never rerun, retro-scored or
+relabelled under a v2 id.
+
+v2 code runs under its own environment pin (`protocol/protocol.json`, python
+3.12) rather than the 3.11 the v1 jobs use, and an unpinned run is refused:
+
+```bash
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+python tools/check_environment_pin.py
+python -m pytest -q tests/unit/test_v2_core.py
+```
+
 ## Install
 
 ```bash
@@ -220,7 +241,9 @@ ElementZero MUST NOT copy, fork, or silently modify Atlas PIR source.
 ## Research baseline and work orders
 
 - Canonical research basis: `docs/research/ElementZero_Initial_Research_Baseline_v0.1.md`
-- Engineering work orders: `docs/work_orders/v0.3/` (start at `00_MASTER_EXECUTION_ORDER.md`)
+- Protocol v2.0.0 specification: `docs/v2/` (start at `README.md`, then `00_V2_CHARTER.md`)
+- v2 work orders WO-201..WO-211: `docs/work_orders/v2/00_MASTER_EXECUTION_ORDER_v2.md`
+- Engineering work orders (v0.3, closed): `docs/work_orders/v0.3/` (start at `00_MASTER_EXECUTION_ORDER.md`)
 - Agent handoff docs / task graph: `docs/00_EXECUTIVE_HANDOFF.md`, `agents/task_manifest.json`
 - Superseded ZME/PEC engineering docs: `docs/legacy/` (non-normative)
 - Legacy scaffolds under `scaffold/` remain for `python scripts/validate_bundle.py` smoke only

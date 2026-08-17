@@ -1,0 +1,59 @@
+{
+  "protocol_version": "2.0.0",
+  "protocol_id": "ez-protocol-v2",
+  "supersedes": ["1.0.0"],
+  "does_not_supersede": "any sealed v1 experiment artifact",
+  "date": "2026-08-17",
+  "environment_pin": {
+    "rule": "an unpinned environment is a protocol violation, not a footnote",
+    "python": "3.12.3",
+    "numpy": "2.4.4",
+    "scipy": "1.18.0",
+    "scikit_learn": "1.8.0",
+    "blas_threads": 1,
+    "blas_note": "numpy and scipy ship OpenBLAS, whose threaded reductions sum partial results in a thread-count-dependent order and whose kernels are runtime-dispatched on CPU SIMD level. Floating-point addition is not associative, so summation order is part of the result and the thread count is part of the pin. Set OMP_NUM_THREADS/OPENBLAS_NUM_THREADS to this value; tools/check_environment_pin.py enforces it.",
+    "blas_backend_recorded_not_pinned": "the BLAS build and the dispatched SIMD level are recorded into every artifact rather than pinned, because they are properties of the host CPU and cannot be pinned by declaration. They are the reason byte replay is per-host, not portable.",
+    "enforced_by": "tools/check_environment_pin.py"
+  },
+  "determinism": {
+    "training_input_sorted_before_fit": true,
+    "random_state": 0,
+    "n_restarts_optimizer": 3,
+    "learned_hyperparameters_persisted_into_freeze": true,
+    "note": "v1 achieved determinism by refusing to fit, which caused the sigma defect. v2 achieves it by recording the fit.",
+    "replay": {
+      "evidence": "reports/v2/replay_environment.json",
+      "byte_replay": "PER_HOST. Achievable only on one host at a fixed BLAS build and a fixed thread count. Interpreter and library versions do NOT determine the bytes, which was measured, not assumed: the same pinned stack at two thread counts produced two distinct serializations of scripts/diagnose_v1_sigma.py, and neither matched the artifact recorded upstream.",
+      "findings_replay": "PORTABLE. Every verdict, dispersion class and failure list reproduces exactly across BLAS thread counts, and every float agrees within the tolerances in protocol/acceptance_matrix.json.",
+      "why_the_fitted_path_is_looser": "the v1 path runs optimizer=None and reproduces to ULP (~1e-14 relative). The v2 path runs L-BFGS-B over the marginal likelihood, and an optimizer handed a gradient perturbed in the last place converges to a slightly different kernel, so the same ULP noise emerges ~1e-5 relative in the learned amplitude, length scales and sigma. This is the accepted cost of the sigma repair: a sigma reproducible to one part in 1e6 and honest beats one reproducible to one part in 1e16 and vacuous.",
+      "reporting_rule": "an artifact states which replay level it claims. A v2 number is never described as byte-replayable off the host that recorded it."
+    }
+  },
+  "model_registry_module": "elementzero.models",
+  "calibration_gate": {
+    "benchmark_id": "EZ-B004",
+    "runs_before": "every scored benchmark",
+    "module": "elementzero.uq.calibration"
+  },
+  "blindness": {
+    "module": "elementzero.models.blindness",
+    "module_version": "ez-blind-v2.0.0",
+    "tiers": ["A_STRICT_BLIND", "B_PARTIAL_BLIND", "C_NONBLIND_REFERENCE", "D_RECONSTRUCTION", "E_INELIGIBLE_UNKNOWN"],
+    "claim_eligible_tiers": ["A_STRICT_BLIND"],
+    "combination_rule": "inherit worst contributor",
+    "mixed_leaderboard": "PROTOCOL_ERROR"
+  },
+  "feature_profiles": {
+    "discovery": {
+      "allowed": ["Z", "N", "A", "local coordinates"],
+      "forbidden": ["magic_number_distance", "nearest_magic_Z", "nearest_magic_N", "shell_gap", "closure_flag", "valence_to_magic"],
+      "violation_behavior": "raise FeatureProfileError; never silently drop"
+    },
+    "accuracy": {
+      "allowed": "all",
+      "pooling_with_discovery": "FORBIDDEN"
+    }
+  },
+  "metric_definitions_inherited_from": "v1 EZ-B001 scoring metrics (unchanged, so v2 numbers drop into the existing comparison)",
+  "scientific_result_policy": "unchanged from v0.3: a bad model result is not an engineering failure; protocol or model change requires a version bump and a full rerun of comparable epochs"
+}

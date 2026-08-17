@@ -41,6 +41,12 @@ elementzero = ["py.typed", "visuals/layouts/*.json"]
 testpaths = ["tests"]
 addopts = "-q"
 pythonpath = ["src"]
+markers = [
+  # Protocol v2.0.0 suite. Run of record is the pinned `v2-protocol-pin` CI job;
+  # the 3.11 `unit` job also collects it as a portability probe. See the
+  # docstring of tests/unit/test_v2_core.py.
+  "v2_protocol: protocol v2.0.0 core tests (calibration gate, GP repair, shell localization, blindness)",
+]
 
 [tool.ruff]
 line-length = 120
