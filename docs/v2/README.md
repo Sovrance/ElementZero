@@ -43,10 +43,15 @@ python -m pip install "numpy==2.4.4" "scipy==1.18.0" "scikit-learn==1.8.0" "pyte
 
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 python tools/check_environment_pin.py            # ENVIRONMENT_PIN: OK
-python -m pytest -q tests/unit/test_v2_core.py   # 26 tests
-python scripts/diagnose_v1_sigma.py --out reports/v2/sigma_defect.json
+python -m pytest -q tests/unit/test_v2_core.py   # 37 tests
+python scripts/diagnose_v1_sigma.py --out /tmp/sigma_defect.json
 python scripts/diagnose_replay_determinism.py    # findings replay: HOLDS
 ```
+
+`--out` is required, and `reports/v2/sigma_defect.json` is refused unless you
+pass `--allow-overwrite-recorded`: that file is the recording of record, not
+this script's output. `diagnose_replay_determinism.py` is the supported way to
+compare a rerun against it.
 
 Expected diagnostic output:
 
@@ -78,7 +83,7 @@ src/elementzero/uq/calibration.py        PIT, coverage curve, CRPS, KS, conforma
 src/elementzero/models/gp_calibrated.py  learned-kernel GP residual, injected backbone
 src/elementzero/models/shell_aware.py    free-knot hinge residual, discovery firewall
 src/elementzero/models/blindness.py      tiers, inheritance, independence groups
-tests/unit/test_v2_core.py               26 tests across all four modules
+tests/unit/test_v2_core.py               37 tests across all four modules
 tools/check_environment_pin.py           the pin, enforced
 ```
 

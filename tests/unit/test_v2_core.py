@@ -1,4 +1,27 @@
-"""v2 core tests: calibration gate, GP repair, shell localization, blindness."""
+"""v2 core tests: calibration gate, GP repair, shell localization, blindness.
+
+This module is collected by TWO CI jobs, deliberately, and they mean different
+things:
+
+    v2-protocol-pin   python 3.12.3 on the pinned stack. The run of record. A
+                      failure here is a protocol failure.
+    unit              python 3.11 on whatever satisfies pyproject's ranges. A
+                      portability probe. A failure here means the v2 code does
+                      not survive that library combination — which is exactly
+                      what you want to learn BEFORE bumping the pin, not after.
+
+Neither run records an artifact or makes a claim, so the unpinned one is not a
+protocol violation; the pin governs recorded results, not test execution. The
+`v2_protocol` marker exists so the suite can be selected or excluded by intent
+rather than by file path, in any lane that has the full dependency set:
+
+    pytest -m v2_protocol          only the v2 suite
+    pytest -m "not v2_protocol"    everything else
+
+The pinned job itself still names this file directly: that lane installs only
+the pinned numeric stack, so collecting all of tests/unit would fail importing
+unrelated v1 modules before a marker filter could apply.
+"""
 
 from __future__ import annotations
 
@@ -38,6 +61,8 @@ from elementzero.uq.calibration import (
     z_scores,
 )
 
+pytestmark = pytest.mark.v2_protocol
+
 # ---------------------------------------------------------------- fixtures
 
 
@@ -65,6 +90,45 @@ def flat_backbone() -> CallableBackbone:
 def test_z_scores_reject_nonpositive_sigma():
     with pytest.raises(ValueError):
         z_scores(np.array([1.0]), np.array([0.0]), np.array([0.0]))
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize("field", ["truth", "prediction", "sigma"])
+def test_non_finite_inputs_are_refused_not_scored(field, bad):
+    """A single NaN must not be able to walk a broken model through the gate.
+
+    Every threshold in `calibration_report` is a comparison, and a comparison
+    against NaN is False. Before this was rejected, one NaN in 100 otherwise
+    healthy targets returned CALIBRATION_PASS, dispersion class CALIBRATED, and
+    an empty failure list, with mean_z / std_z / pit_ks_d all NaN — the gate
+    certifying exactly what it exists to reject.
+    """
+    rng = np.random.default_rng(7)
+    n = 100
+    arrays = {
+        "truth": rng.normal(0, 250.0, n),
+        "prediction": np.zeros(n),
+        "sigma": np.full(n, 250.0),
+    }
+    arrays[field][0] = bad
+
+    with pytest.raises(ValueError, match="finite"):
+        calibration_report(**arrays)
+
+
+def test_misaligned_inputs_are_refused_rather_than_broadcast():
+    """Silent broadcasting would score a different target set than intended."""
+    with pytest.raises(ValueError, match="aligned"):
+        calibration_report(np.zeros(50), np.zeros(50), np.full(49, 100.0))
+
+
+def test_conformal_scaler_also_refuses_non_finite_inputs():
+    """The repair path shares the chokepoint; it must not be the way in."""
+    rng = np.random.default_rng(11)
+    truth = rng.normal(0, 300.0, 100)
+    truth[3] = np.nan
+    with pytest.raises(ValueError, match="finite"):
+        ConformalSigmaScaler().fit(truth, np.zeros(100), np.full(100, 300.0))
 
 
 def test_well_calibrated_sample_passes_gate():

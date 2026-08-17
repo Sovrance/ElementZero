@@ -2,12 +2,18 @@
 
 Run:
 
-    python scripts/diagnose_v1_sigma.py --out reports/v2/sigma_defect.json
+    python scripts/diagnose_v1_sigma.py --out /tmp/sigma_defect.json
 
 This script does not touch any sealed v1 artifact. It re-runs the frozen v1
 kernel configuration on a controlled synthetic surface, next to the v2 kernel,
 and records the calibration verdict for each. It exists so the defect is a
 committed, reproducible finding rather than a claim in a report.
+
+`--out` is required and the committed `reports/v2/sigma_defect.json` is refused
+by default: that file is the recording of record, not this script's output. To
+compare a rerun against it, write to a scratch path and use
+`scripts/diagnose_replay_determinism.py`, which does the comparison at both the
+byte and the findings level.
 """
 
 from __future__ import annotations
@@ -46,12 +52,61 @@ def synthetic_surface(seed: int = 0, n_points: int = 400):
     return z, n, y
 
 
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+RECORDED_ARTIFACT = pathlib.Path("reports/v2/sigma_defect.json")
+
+
+def resolve_out(out: str, allow_overwrite_recorded: bool) -> pathlib.Path:
+    """Refuse to overwrite the recorded reproduction by accident.
+
+    `reports/v2/sigma_defect.json` is the committed recording of the v1 sigma
+    defect. AGENTS.md says not to regenerate it in place, and the charter treats
+    it as evidence rather than output. A default that wrote straight over it
+    left that rule enforced by prose alone, one bare invocation away from
+    silently replacing the artifact with a rerun from a different host — which,
+    per `reports/v2/replay_environment.json`, would not even be byte-identical.
+
+    So `--out` is required, and the recorded path is refused unless the caller
+    asks for it explicitly. Re-recording it is a legitimate act after a protocol
+    version bump; doing it without meaning to is not.
+    """
+    path = pathlib.Path(out)
+    target = path if path.is_absolute() else pathlib.Path.cwd() / path
+    # Anchored to the repository, not the working directory: the artifact is at
+    # a fixed place in the tree, and a guard that moved with `cd` would not be
+    # one.
+    recorded = ROOT / RECORDED_ARTIFACT
+
+    if target.resolve() == recorded.resolve() and not allow_overwrite_recorded:
+        raise SystemExit(
+            f"refusing to overwrite the recorded artifact {RECORDED_ARTIFACT}.\n"
+            "It is the committed reproduction of the v1 sigma defect, not scratch output.\n"
+            "Write elsewhere and compare:\n"
+            "    python scripts/diagnose_v1_sigma.py --out /tmp/sigma_defect.json\n"
+            "    python scripts/diagnose_replay_determinism.py\n"
+            "If you genuinely intend to re-record it (protocol version bump), pass "
+            "--allow-overwrite-recorded."
+        )
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--out", default="reports/v2/sigma_defect.json")
+    parser.add_argument(
+        "--out",
+        required=True,
+        help="where to write the diagnostic; the recorded artifact path is refused "
+        "unless --allow-overwrite-recorded is also passed",
+    )
+    parser.add_argument(
+        "--allow-overwrite-recorded",
+        action="store_true",
+        help=f"permit writing over {RECORDED_ARTIFACT}; only for a deliberate re-record",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--n-points", type=int, default=400)
     args = parser.parse_args()
+    out_path = resolve_out(args.out, args.allow_overwrite_recorded)
 
     z, n, y = synthetic_surface(args.seed, args.n_points)
     split = int(0.7 * len(z))
@@ -121,7 +176,7 @@ def main() -> int:
         ),
     }
 
-    out = pathlib.Path(args.out)
+    out = out_path
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 

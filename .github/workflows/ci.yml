@@ -29,6 +29,12 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python tools/ensure_atlas_pir.py
       - run: python -m pip install -e '.[dev]'
+      # This also collects tests/unit/test_v2_core.py (marker: v2_protocol) on
+      # 3.11 with whatever satisfies pyproject's ranges. That is intentional and
+      # is NOT the protocol run: it is a portability probe, and a failure here
+      # means the v2 code does not survive that library combination — which is
+      # what you want to learn before bumping the pin. The run of record is
+      # v2-protocol-pin below. To drop the probe: pytest -m "not v2_protocol".
       - run: python -m pytest -q tests/unit
 
   # Protocol v2.0.0 runs on its own pinned stack. The v1 jobs above stay on
@@ -56,6 +62,12 @@ jobs:
       - run: python -m pip install "numpy==2.4.4" "scipy==1.18.0" "scikit-learn==1.8.0" "pytest>=8"
       # An unpinned environment is a protocol violation, not a footnote.
       - run: python tools/check_environment_pin.py
+      # The v2 run of record. Scoped by path, not by `-m v2_protocol`: this lane
+      # installs only the pinned numeric stack, with no Atlas PIR and no
+      # editable install, so collecting all of tests/unit would fail importing
+      # unrelated v1 modules before any marker filter applied. The marker is for
+      # selecting or excluding the suite in lanes that do have the full
+      # dependency set.
       - run: python -m pytest -q tests/unit/test_v2_core.py
       # Findings replay is portable and enforced; byte replay is per-host and
       # is reported, not asserted. This step fails only if a verdict moves.

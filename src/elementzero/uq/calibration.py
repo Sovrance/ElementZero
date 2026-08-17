@@ -74,11 +74,55 @@ def _gaussian_two_sided_critical(level: float) -> float:
     return 0.5 * (lo + hi)
 
 
+def _assert_gate_inputs(truth: np.ndarray, prediction: np.ndarray, sigma: np.ndarray) -> None:
+    """Reject inputs that would silently disable the gate.
+
+    A NaN is not merely an ugly diagnostic here; it is a gate bypass. Every
+    threshold in `calibration_report` is a comparison, and every comparison
+    against NaN is False, so a single non-finite value anywhere in the three
+    arrays yields `mean_z`, `std_z` and `pit_ks_d` of NaN, no recorded failure,
+    and a verdict of CALIBRATION_PASS with dispersion class CALIBRATED. A
+    numerically broken model would be certified by the benchmark that exists to
+    catch numerically broken models.
+
+    That is the same shape of error as the v1 sigma defect this protocol was
+    written to repair: a quantity nobody could read as wrong, passing because
+    the check was structurally incapable of failing. So this raises rather than
+    filtering. Dropping the offending targets would change the target set
+    behind the scoreboard's back, and Doctrine 7 excludes a model with a
+    recorded reason rather than quietly repairing it.
+    """
+    arrays = {"truth": truth, "prediction": prediction, "sigma": sigma}
+
+    shapes = {name: arr.shape for name, arr in arrays.items()}
+    if len(set(shapes.values())) != 1:
+        raise ValueError(
+            f"truth, prediction and sigma must be aligned; got shapes {shapes}. "
+            "Broadcasting would silently score a different target set than the caller meant."
+        )
+
+    nonfinite = {
+        name: int(np.count_nonzero(~np.isfinite(arr))) for name, arr in arrays.items()
+    }
+    if any(nonfinite.values()):
+        offenders = ", ".join(f"{name}={count}" for name, count in nonfinite.items() if count)
+        raise ValueError(
+            f"calibration inputs must be finite; non-finite counts: {offenders} "
+            f"(n={truth.size}). Every gate threshold is a comparison, and a comparison "
+            "against NaN is False, so non-finite inputs would return CALIBRATION_PASS "
+            "with NaN diagnostics. Exclude the model with a recorded failure class "
+            "instead of scoring it."
+        )
+
+
 def z_scores(truth: np.ndarray, prediction: np.ndarray, sigma: np.ndarray) -> np.ndarray:
+    truth = np.asarray(truth, dtype=float)
+    prediction = np.asarray(prediction, dtype=float)
     sigma = np.asarray(sigma, dtype=float)
+    _assert_gate_inputs(truth, prediction, sigma)
     if np.any(sigma <= 0.0):
         raise ValueError("sigma must be strictly positive")
-    return (np.asarray(truth, dtype=float) - np.asarray(prediction, dtype=float)) / sigma
+    return (truth - prediction) / sigma
 
 
 def pit_values(z: np.ndarray) -> np.ndarray:

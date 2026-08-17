@@ -63,7 +63,7 @@ KnowledgeFreeze and the model manifest. Pin the environment in
 Accept: every registry model passes the thresholds in
 `protocol/acceptance_matrix.json` on development data or is excluded with a
 recorded failure class; byte replay holds under the pin.
-Status: IMPLEMENTED and LANDED (26 tests green in `tests/unit/test_v2_core.py`;
+Status: IMPLEMENTED and LANDED (37 tests green in `tests/unit/test_v2_core.py`;
 defect reproduced in `reports/v2/sigma_defect.json`; pin enforced by
 `tools/check_environment_pin.py` and the `v2-protocol-pin` CI job).
 
