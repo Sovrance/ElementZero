@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "nuclide_id",
+    "family_id",
+    "components",
+    "total_predictive"
+  ],
+  "properties": {
+    "nuclide_id": {
+      "type": "string"
+    },
+    "family_id": {
+      "type": "string"
+    },
+    "components": {
+      "type": "object"
+    },
+    "total_predictive": {
+      "type": "object",
+      "required": [
+        "value_keV",
+        "composition_policy",
+        "valid_for_calibration_scoring"
+      ],
+      "properties": {
+        "value_keV": {
+          "type": "number",
+          "minimum": 0
+        },
+        "composition_policy": {
+          "type": "string"
+        },
+        "valid_for_calibration_scoring": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

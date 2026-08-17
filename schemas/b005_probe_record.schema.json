@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "probe_id",
+    "family_id",
+    "nuclide_id",
+    "converged",
+    "energy_valid",
+    "status",
+    "workdir_id",
+    "output_hash"
+  ],
+  "properties": {
+    "probe_id": {
+      "type": "string"
+    },
+    "family_id": {
+      "type": "string"
+    },
+    "nuclide_id": {
+      "type": "string"
+    },
+    "converged": {
+      "type": "boolean"
+    },
+    "energy_valid": {
+      "type": "boolean"
+    },
+    "status": {
+      "enum": [
+        "MEASURED",
+        "PROBE_INVALID",
+        "UNAVAILABLE"
+      ]
+    },
+    "workdir_id": {
+      "type": "string"
+    },
+    "output_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

@@ -737,3 +737,317 @@ def test_backend_ids_are_distinct_families():
     assert {BACKEND_SKYRME, BACKEND_GOGNY, BACKEND_COVARIANT} == set(ROSTER)
     functional_classes = {ROSTER[b]["functional_class"] for b in ROSTER}
     assert len(functional_classes) == 3
+
+
+# --------------------------------------------------------------------------- #
+# Scoring is bound to the preregistration (WO-15 review round)                #
+# --------------------------------------------------------------------------- #
+
+
+def _b004_fixtures():
+    """A minimal, internally consistent protocol/manifest/seal triple."""
+    from elementzero.evidence.freezes import identity_digest
+
+    ids = ["Z80-N92", "Z84-N102"]
+    digest = identity_digest(ids)
+    manifest = {
+        "target_nuclide_ids": list(ids),
+        "target_identity_digest": digest,
+        "targets": [{"nuclide_id": i} for i in ids],
+        "n_targets": len(ids),
+        "target_rule_hash": "r" * 64,
+    }
+    protocol = {
+        "target_identity_digest": digest,
+        "n_targets": len(ids),
+        "target_rule_hash": "r" * 64,
+        "independence_groups": ["skyrme_hfb_edf"],
+    }
+    sealed = {
+        "target_identity_digest": digest,
+        "target_nuclide_ids": list(ids),
+    }
+    return manifest, protocol, sealed
+
+
+def test_target_manifest_binding_accepts_the_preregistered_manifest():
+    from elementzero.b004.bind import assert_target_manifest_bound
+
+    manifest, protocol, sealed = _b004_fixtures()
+    bound = assert_target_manifest_bound(
+        target_manifest=manifest, protocol=protocol, sealed=sealed
+    )
+    assert bound["n_targets"] == "2"
+
+
+def test_shortening_the_target_list_cannot_shrink_the_denominator():
+    """The exact post-unlock edit that would inflate coverage."""
+    from elementzero.b004.bind import assert_target_manifest_bound
+
+    manifest, protocol, sealed = _b004_fixtures()
+    # Rows and stored digest kept; only the id list (the denominator) cut.
+    manifest["target_nuclide_ids"] = manifest["target_nuclide_ids"][:1]
+    manifest["n_targets"] = 1
+    with pytest.raises(ProtocolError, match="B004_TARGET_MANIFEST_UNBOUND"):
+        assert_target_manifest_bound(
+            target_manifest=manifest, protocol=protocol, sealed=sealed
+        )
+
+
+def test_target_manifest_must_match_the_sealed_target_list():
+    from elementzero.b004.bind import assert_target_manifest_bound
+    from elementzero.evidence.freezes import identity_digest
+
+    manifest, protocol, sealed = _b004_fixtures()
+    manifest["target_nuclide_ids"] = ["Z80-N92", "Z84-N104"]
+    manifest["targets"] = [{"nuclide_id": i} for i in manifest["target_nuclide_ids"]]
+    manifest["target_identity_digest"] = identity_digest(
+        manifest["target_nuclide_ids"]
+    )
+    protocol["target_identity_digest"] = manifest["target_identity_digest"]
+    with pytest.raises(ProtocolError, match="B004_TARGET_MANIFEST_UNBOUND"):
+        assert_target_manifest_bound(
+            target_manifest=manifest, protocol=protocol, sealed=sealed
+        )
+
+
+def test_flipping_blind_eligibility_after_scoring_is_refused():
+    from elementzero.b004.bind import assert_adjudication_bound
+
+    records = [
+        {
+            "group_id": "skyrme_hfb_edf",
+            "blind_eligible": False,
+            "independence_verdict": INDEPENDENT,
+        }
+    ]
+    protocol = {"independence_groups": ["skyrme_hfb_edf"]}
+    tampered = [{**records[0], "blind_eligible": True}]
+    with pytest.raises(ProtocolError, match="B004_ADJUDICATION_UNBOUND"):
+        assert_adjudication_bound(
+            adjudication={"records": tampered},
+            protocol=protocol,
+            recomputed_records=records,
+        )
+    bound = assert_adjudication_bound(
+        adjudication={"records": records},
+        protocol=protocol,
+        recomputed_records=records,
+    )
+    assert bound["blind_eligible_groups"] == ""
+
+
+def test_seal_hash_must_come_from_a_reachable_commit(tmp_path):
+    from elementzero.b004.bind import seal_hash_from_commit
+
+    with pytest.raises(ProtocolError, match="B004_SEAL_COMMIT_MISSING"):
+        seal_hash_from_commit(tmp_path, commit="", relpath="x.json")
+    with pytest.raises(ProtocolError, match="B004_SEAL_COMMIT_INVALID"):
+        seal_hash_from_commit(REPO_ROOT, commit="0" * 40, relpath="x.json")
+
+
+def test_committed_seal_commit_carries_the_sealed_bytes():
+    """The recorded B004 seal commit really holds the sealed predictions."""
+    from elementzero.b004.bind import seal_hash_from_commit
+
+    claim_path = REPO_ROOT / "results/EZ-B004-v1/claim_adjudication.json"
+    if not claim_path.is_file():
+        pytest.skip("B004 is not adjudicated in this tree")
+    record = json.loads(claim_path.read_text(encoding="utf-8"))["records"][0]
+    commit = record["seal_commit"]
+    import subprocess
+
+    reachable = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", commit, "HEAD"],
+        check=False,
+        capture_output=True,
+    )
+    if reachable.returncode != 0:
+        pytest.skip("shallow clone: the seal commit is not present locally")
+    digest = seal_hash_from_commit(
+        REPO_ROOT,
+        commit=commit,
+        relpath="results/EZ-B004-v1/SEALED_PREDICTIONS.json",
+    )
+    assert digest == record["seal_hash_from_commit"]
+    assert digest == sha256_file(
+        REPO_ROOT / "results/EZ-B004-v1/SEALED_PREDICTIONS.json"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Uncertainty probes                                                          #
+# --------------------------------------------------------------------------- #
+
+
+def test_nonconverged_probe_is_not_read_as_zero_uncertainty():
+    from elementzero.b004.runs import (
+        PROBE_MEASURED,
+        PROBE_NONCONVERGED,
+        _probe_component,
+    )
+
+    nonconverged = {
+        "energy_MeV": -1300.0,
+        "solver_ok": False,
+        "converged_statement": False,
+        "aborted": False,
+        "iterations": 500,
+        "nan_detected": False,
+    }
+    value, status = _probe_component(
+        nonconverged, z=80, n=92, prediction=0.0, required=True
+    )
+    assert value is None and status == PROBE_NONCONVERGED
+
+    converged = {**nonconverged, "solver_ok": True}
+    value, status = _probe_component(
+        converged, z=80, n=92, prediction=0.0, required=True
+    )
+    assert status == PROBE_MEASURED and value is not None and value > 0.0
+
+
+def test_missing_probe_is_distinguished_from_an_inapplicable_one():
+    from elementzero.b004.runs import (
+        PROBE_MISSING,
+        PROBE_NOT_APPLICABLE,
+        _probe_component,
+    )
+
+    _, status = _probe_component(None, z=80, n=92, prediction=0.0, required=True)
+    assert status == PROBE_MISSING
+    _, status = _probe_component(None, z=80, n=92, prediction=0.0, required=False)
+    assert status == PROBE_NOT_APPLICABLE
+
+
+def test_solver_work_directory_is_recreated_not_reused():
+    """A stale output must never be parsed as the current solve."""
+    import inspect
+
+    from elementzero.physics_backends import runner
+
+    source = inspect.getsource(runner.run_solver)
+    assert "shutil.rmtree" in source
+    assert "exist_ok=True" not in source
+
+
+# --------------------------------------------------------------------------- #
+# WO-15B discrepancy training firewall                                        #
+# --------------------------------------------------------------------------- #
+
+
+def test_every_blind_holdout_loads_into_the_exclusion_set():
+    """A holdout that fails to load looks exactly like one that was honoured."""
+    from elementzero.model_discrepancy.dataset import excluded_identities
+
+    if not (REPO_ROOT / "experiments/EZ-B002-v2-real-blind").is_dir():
+        pytest.skip("WO-14 experiments are not committed in this tree")
+    excluded = excluded_identities(repo_root=REPO_ROOT)
+    # B002 records its targets in a region manifest, B003 in its seal, and
+    # B004 in its target manifest. All three must arrive.
+    for experiment in (
+        "EZ-B002-v2-real-blind",
+        "EZ-B003-v2-real-blind",
+        "EZ-B004-v1",
+    ):
+        assert excluded.get(experiment), f"{experiment} contributed no ids"
+    assert len(excluded["EZ-B002-v2-real-blind"]) == 60
+
+
+def test_b002_holdout_cannot_enter_discrepancy_training():
+    """The leak the exclusion set exists to prevent."""
+    from elementzero.model_discrepancy.dataset import (
+        build_training_set,
+        excluded_identities,
+    )
+
+    if not (REPO_ROOT / "experiments/EZ-B002-v2-real-blind").is_dir():
+        pytest.skip("WO-14 experiments are not committed in this tree")
+    excluded = excluded_identities(repo_root=REPO_ROOT)
+    chronology = json.loads(
+        (
+            REPO_ROOT / "reports/eligibility/wo13/historical_source_chronology.json"
+        ).read_text(encoding="utf-8")
+    )
+    eligible = set(chronology["sources"]["AME1995"]["eligible_nuclide_ids"])
+    leaky = [
+        i for i in excluded["EZ-B002-v2-real-blind"] if i in eligible
+    ]
+    assert leaky, "expected B002 identities inside the AME1995 freeze"
+    with pytest.raises(ProtocolError, match="DISCREPANCY_TRAINING_LEAK"):
+        build_training_set(
+            family_id="skyrme_hfb_edf",
+            freeze_id="ez-wo15-historical-fit-freeze-v1",
+            rows=[
+                {
+                    "nuclide_id": leaky[0],
+                    "residual_keV": 1234.0,
+                    "solver_status": SOLVER_OK,
+                }
+            ],
+            eligible_ids=eligible,
+            excluded=excluded,
+            repo_root=REPO_ROOT,
+        )
+
+
+def test_unconverged_residual_cannot_train_a_discrepancy_model():
+    from elementzero.model_discrepancy.dataset import build_training_set
+
+    with pytest.raises(ProtocolError, match="DISCREPANCY_TRAINING_UNCONVERGED"):
+        build_training_set(
+            family_id="skyrme_hfb_edf",
+            freeze_id="f",
+            rows=[
+                {
+                    "nuclide_id": "Z50-N70",
+                    "residual_keV": 1000.0,
+                    "solver_status": SOLVER_NONCONVERGED,
+                }
+            ],
+            eligible_ids={"Z50-N70"},
+            excluded={},
+            repo_root=REPO_ROOT,
+        )
+
+
+def test_incomplete_probe_row_is_not_reported_as_interpretable():
+    """Sigma above the floor is not proof the uncertainty was measured."""
+    from elementzero.b004.runs import (
+        SIGMA_INCOMPLETE,
+        SIGMA_MEASURED,
+        _sigma_provenance,
+    )
+
+    # Numerical probe failed, parameter probe measured 400 keV: sigma is
+    # well clear of the floor, so a floor-based check would pass it.
+    incomplete = _sigma_provenance(
+        [
+            {
+                "sigma_keV": 400.0,
+                "sigma_status": SIGMA_INCOMPLETE,
+                "numerical_sigma_keV": None,
+                "parameter_sigma_keV": 400.0,
+            }
+        ]
+    )
+    assert incomplete["n_sigma_floor_only"] == 0
+    assert incomplete["n_sigma_incomplete"] == 1
+    assert incomplete["calibration_interpretable"] is False
+
+    # A run sealed before the policy is unknown, not known-bad.
+    unrecorded = _sigma_provenance([{"sigma_keV": 400.0}])
+    assert unrecorded["calibration_interpretable"] is None
+    assert "probe_validity_audit" in unrecorded["interpretability_basis"]
+
+    measured = _sigma_provenance(
+        [
+            {
+                "sigma_keV": 400.0,
+                "sigma_status": SIGMA_MEASURED,
+                "numerical_sigma_keV": 300.0,
+                "parameter_sigma_keV": 265.0,
+            }
+        ]
+    )
+    assert measured["calibration_interpretable"] is True

@@ -8,6 +8,7 @@ executables both read and write fixed filenames in the working directory.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from collections.abc import Mapping
 from pathlib import Path
@@ -62,9 +63,18 @@ def run_solver(
     timeout_s: int = DEFAULT_TIMEOUT_S,
     stdout_name: str = "run.log",
 ) -> dict[str, Any]:
-    """Run one solve in a clean directory; never raise on solver failure."""
+    """Run one solve in a clean directory; never raise on solver failure.
+
+    The directory is recreated rather than reused. Both solvers write
+    fixed output filenames, so a re-run that times out or dies before
+    writing would otherwise leave the previous run's ``thoout.dat`` or
+    ``dirhb.out`` in place for the parser to read — reporting a stale
+    converged energy as the result of a solve that failed.
+    """
     work_dir = Path(work_dir)
-    work_dir.mkdir(parents=True, exist_ok=True)
+    if work_dir.exists():
+        shutil.rmtree(work_dir)
+    work_dir.mkdir(parents=True)
     for name, content in input_files.items():
         (work_dir / name).write_text(content, encoding="utf-8")
 
