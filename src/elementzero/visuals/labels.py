@@ -24,6 +24,8 @@ BADGE_LABELS = {
     "R": "reconstruction reference (never blind validation)",
     "CB": "control-blind real validation (statistical baselines only)",
     "HB": "historical-blind edge evidence (never full shell rediscovery)",
+    "PF": "provenance-complete refittable physics family (qualification only)",
+    "PB": "multi-family blind physics challenge scored (see claim record)",
 }
 
 HEALTH_LABELS = {

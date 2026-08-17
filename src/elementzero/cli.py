@@ -482,6 +482,22 @@ def build_parser() -> argparse.ArgumentParser:
         "report", help="build the committed WO-14 report bundle"
     )
     rsub.add_parser("status", help="print the committed WO-14 status")
+
+    physics = sub.add_parser(
+        "physics", help="WO-15 refittable physics backends and EZ-B004"
+    )
+    psub = physics.add_subparsers(dest="physics_command", required=True)
+    psub.add_parser(
+        "qualify", help="verify solver archives, builds, and golden cases"
+    )
+    psub.add_parser("provenance", help="print the backend provenance summary")
+    psub.add_parser(
+        "independence", help="print the committed independence adjudication"
+    )
+    psub.add_parser("targets", help="print the deterministic B004 target manifest")
+    report = psub.add_parser("report", help="rebuild the committed WO-15 bundle")
+    report.add_argument("--output", default=None)
+    psub.add_parser("status", help="print the committed WO-15 status")
     return parser
 
 
@@ -718,6 +734,73 @@ def _real_validation(args: argparse.Namespace) -> int:
     raise SystemExit(f"unknown real-validation command {cmd!r}")
 
 
+def _physics(args: argparse.Namespace) -> int:
+    from elementzero.atlas_pin import REPO_ROOT
+    from elementzero.b004.targets import select_targets
+    from elementzero.evidence.ledger import read_json
+    from elementzero.physics_backends import REPORTS_RELPATH as WO15_REPORTS
+
+    cmd = args.physics_command
+    if cmd == "qualify":
+        from elementzero.physics_backends.adapters.dirhb import dirhb_backend
+        from elementzero.physics_backends.adapters.hfbtho import skyrme_backend
+
+        skyrme = skyrme_backend(functional="SKM*")
+        covariant = dirhb_backend(force="DD-ME2")
+        print(
+            canonical_json(
+                {
+                    "HFBTHO": skyrme.verify_golden_cases(),
+                    "DIRHB": covariant.verify_golden_cases(),
+                }
+            )
+        )
+        return 0
+    if cmd == "provenance":
+        payload = read_json(REPO_ROOT / WO15_REPORTS / "backend_provenance.json")
+        print(
+            canonical_json(
+                {
+                    "solvers": sorted(payload["solvers"]),
+                    "qualifications": {
+                        q["backend_id"]: q["status"]
+                        for q in payload["qualifications"]
+                    },
+                }
+            )
+        )
+        return 0
+    if cmd == "independence":
+        payload = read_json(
+            REPO_ROOT / "experiments/EZ-B004-v1/independence_adjudication.json"
+        )
+        print(canonical_json(payload["gate"]))
+        return 0
+    if cmd == "targets":
+        manifest = select_targets()
+        print(
+            canonical_json(
+                {
+                    "n_targets": manifest["n_targets"],
+                    "target_identity_digest": manifest["target_identity_digest"],
+                    "strata": manifest["strata"],
+                    "evaluable": manifest["evaluable"],
+                }
+            )
+        )
+        return 0
+    if cmd == "report":
+        from elementzero.physics_backends.build_report import build_wo15_report
+
+        result = build_wo15_report(out_dir=args.output)
+        print(canonical_json(result["status"]))
+        return 0
+    if cmd == "status":
+        print(canonical_json(read_json(REPO_ROOT / WO15_REPORTS / "wo15_status.json")))
+        return 0
+    raise SystemExit(f"unknown physics command {cmd!r}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -748,6 +831,8 @@ def main(argv: list[str] | None = None) -> int:
         return _eligibility(args)
     if args.command == "real-validation":
         return _real_validation(args)
+    if args.command == "physics":
+        return _physics(args)
     if args.command != "benchmark":
         parser.error(
             "only the benchmark, report, visual, adjudicate, eligibility, "
