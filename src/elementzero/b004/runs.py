@@ -62,6 +62,12 @@ SIGMA_MEASURED = "MEASURED"
 SIGMA_INCOMPLETE = "INCOMPLETE_PROBE_FAILURE"
 UNRECORDED_SIGMA_STATUS = "UNRECORDED_PRE_PROBE_POLICY"
 
+# WO-15B v0.5.2 retrospective label: a family whose uncertainty probes
+# were invalid has no calibration that could have failed.
+NOT_EVALUABLE_FROM_INVALID_PROBE_SIGMA = (
+    "NOT_EVALUABLE_FROM_INVALID_PROBE_SIGMA"
+)
+
 PROBE_POLICY = (
     "ez-wo15-probe-validity-v1: an uncertainty component is recorded only "
     "from a probe that classifies SOLVER_OK. A non-converged or energy-less "
@@ -452,6 +458,10 @@ def _sigma_provenance(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "a probe failed or a sigma sits at the floor, so the "
             "calibration statistics describe the floor rather than the model"
         )
+        # WO-15B v0.5.2 sections 0 and 9: a family whose probes were
+        # invalid has no calibration to have failed. Its point
+        # predictions remain valid reference results.
+        calibration_status = NOT_EVALUABLE_FROM_INVALID_PROBE_SIGMA
     elif unrecorded:
         interpretable = None
         basis = (
@@ -459,10 +469,13 @@ def _sigma_provenance(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "probe status; probe_validity_audit.json is the authority for "
             "this run"
         )
+        calibration_status = "EVALUABLE_BY_PROBE_AUDIT"
     else:
         interpretable = True
         basis = "every row reports sigma_status=MEASURED"
+        calibration_status = "EVALUABLE"
     return {
+        "calibration_status": calibration_status,
         "n_rows": len(rows),
         "n_sigma_floor_only": len(floor_only),
         "n_sigma_incomplete": incomplete,

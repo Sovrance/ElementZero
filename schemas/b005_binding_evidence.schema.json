@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "seal_commit",
+    "seal_commit_reachable",
+    "committed_seal_hash",
+    "target_manifest_digest",
+    "sealed_target_digest",
+    "adjudication_recomputed"
+  ],
+  "properties": {
+    "seal_commit": {
+      "type": "string"
+    },
+    "seal_commit_reachable": {
+      "const": true
+    },
+    "committed_seal_hash": {
+      "type": "string"
+    },
+    "target_manifest_digest": {
+      "type": "string"
+    },
+    "sealed_target_digest": {
+      "type": "string"
+    },
+    "adjudication_recomputed": {
+      "const": true
+    }
+  },
+  "additionalProperties": true
+}
