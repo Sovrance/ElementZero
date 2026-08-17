@@ -28,6 +28,14 @@ HFBTHO_ITER_RE = re.compile(r"^\s*(\d+)\s+\S+\s+", re.MULTILINE)
 # DIRHB writes "  Total Energy                     -670.936603"
 DIRHB_ENERGY_RE = re.compile(r"Total Energy\s+(-?\d+\.\d+)")
 DIRHB_ITER_RE = re.compile(r"(\d+)\.It\. si =")
+# DIRHB announces convergence explicitly, and then prints
+# "STOP  FINAL STOP OF DIRHBS" on a *normal* exit. Treating the word
+# STOP as failure would discard every good solve, so convergence is read
+# from the solver's own statement instead.
+DIRHB_CONVERGED_RE = re.compile(r"Iteration converged after\s+\d+\s+steps")
+DIRHB_ABORT_RE = re.compile(
+    r"STOP:\s|NUCLEUS\s+\S+\s+UNKNOWN|Iteration has not converged"
+)
 
 
 def _read(path: Path) -> str:
@@ -85,9 +93,13 @@ def parse_dirhb(run_dir: str | Path) -> dict[str, Any]:
     energy = float(energies[-1]) if energies else None
     if energy is not None and (math.isnan(energy) or math.isinf(energy)):
         energy = None
+    converged = bool(DIRHB_CONVERGED_RE.search(blob))
+    aborted = bool(DIRHB_ABORT_RE.search(blob))
     return {
         "energy_MeV": energy,
-        "solver_ok": energy is not None and "STOP" not in screen.upper(),
+        "solver_ok": energy is not None and converged and not aborted,
+        "converged_statement": converged,
+        "aborted": aborted,
         "iterations": int(iters[-1]) if iters else 0,
         "nan_detected": "NaN" in blob,
         "output_hash": sha256_hex({"out": out, "screen": screen}),

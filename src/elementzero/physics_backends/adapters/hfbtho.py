@@ -208,6 +208,9 @@ class HfbthoBackend(PhysicsBackend):
     """One HFBTHO build serving one declared physics family."""
 
     solver_name = "HFBTHO"
+    basis_policy = BASIS_POLICY
+    base_shells = BASIS_N_SHELLS
+    probe_shells = 16
 
     def __init__(
         self,

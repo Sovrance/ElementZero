@@ -55,6 +55,8 @@ SHIPPED_FORCES = ("DD-ME2", "DD-PC1")
 BASIS_POLICY_ID = "ez-wo15-dirhb-basis-v1"
 BASIS_N0F = 12
 BASIS_N0B = 20
+# One step up in the fermionic basis is the numerical-uncertainty probe.
+BASIS_PROBE_N0F = 14
 BASIS_POLICY = (
     f"{BASIS_POLICY_ID}: DIRHB spherical, {BASIS_N0F} fermionic and "
     f"{BASIS_N0B} bosonic oscillator shells, initial gap 1.0/1.0 MeV, "
@@ -74,21 +76,44 @@ c-------------------------------------------------------------------
 """
 
 
-def dirhb_input(*, z: int, n: int, force: str) -> str:
+def dirhb_symbol(z: int) -> str:
+    """DIRHB's two-character element symbol.
+
+    Its internal lookup table pads single-letter elements with a leading
+    underscore ('_U', '_C', '_O'). A plain left-justified symbol makes the
+    solver print "NUCLEUS U  UNKNOWN" and stop — which would look like a
+    physics failure while actually being a formatting bug.
+    """
     from elementzero.visuals.metadata import metadata_for
 
+    symbol = metadata_for(z)["symbol"]
+    return symbol if len(symbol) == 2 else f"_{symbol}"
+
+
+def _input_with_basis(*, z: int, n: int, force: str, n0f: int) -> str:
+    """DIRHB input at an explicit fermionic basis size.
+
+    The basis probe reuses the standard input and varies only n0f, so a
+    numerical-uncertainty estimate cannot smuggle in any other change.
+    """
+    if force not in SHIPPED_FORCES:
+        raise ProtocolError(f"force {force!r} is not in the distributed package")
+    return _INPUT.format(
+        n0f=n0f,
+        n0b=BASIS_N0B,
+        symbol=dirhb_symbol(z),
+        a=z + n,
+        force=force,
+    )
+
+
+def dirhb_input(*, z: int, n: int, force: str) -> str:
     if force not in SHIPPED_FORCES:
         raise ProtocolError(
             f"force {force!r} is not in the distributed DIRHB package "
             f"{SHIPPED_FORCES}; inventing a parameterization is not allowed"
         )
-    return _INPUT.format(
-        n0f=BASIS_N0F,
-        n0b=BASIS_N0B,
-        symbol=metadata_for(z)["symbol"],
-        a=z + n,
-        force=force,
-    )
+    return _input_with_basis(z=z, n=n, force=force, n0f=BASIS_N0F)
 
 
 class DirhbBackend(PhysicsBackend):
@@ -97,6 +122,9 @@ class DirhbBackend(PhysicsBackend):
     backend_id = BACKEND_COVARIANT
     physics_family = GROUP_COVARIANT_RHB
     solver_name = "DIRHB"
+    basis_policy = BASIS_POLICY
+    base_shells = BASIS_N0F
+    probe_shells = BASIS_PROBE_N0F
 
     def __init__(self, *, force: str = "DD-ME2", repo_root: str | Path | None = None) -> None:
         if force not in SHIPPED_FORCES:
@@ -163,6 +191,40 @@ class DirhbBackend(PhysicsBackend):
 
     def supports(self, nuclide: NuclideIdentity) -> bool:
         return nuclide.Z % 2 == 0 and nuclide.N % 2 == 0 and nuclide.Z >= 8
+
+    @staticmethod
+    def parse_run(work_dir: str | Path) -> dict[str, Any]:
+        return parse_dirhb(work_dir)
+
+    def solve_one(
+        self,
+        nuclide: NuclideIdentity,
+        *,
+        work_dir: str | Path,
+        vpair_n: float | None = None,
+        vpair_p: float | None = None,
+        shells: int = BASIS_N0F,
+    ) -> dict[str, Any]:
+        """One solve, shaped like the HFBTHO probe interface.
+
+        DIRHB exposes no user pairing knob — its pairing comes from the
+        published force — so vpair_* are accepted and ignored rather than
+        silently pretended to have an effect. ``shells`` varies the
+        fermionic basis size, which is what the numerical-uncertainty
+        probe needs.
+        """
+        del vpair_n, vpair_p
+        result = run_solver(
+            binary=dirhb_binary(repo_root=self._repo_root),
+            work_dir=work_dir,
+            input_files={
+                "dirhb.dat": _input_with_basis(
+                    z=nuclide.Z, n=nuclide.N, force=self.force, n0f=shells
+                )
+            },
+            stdout_name="screen.log",
+        )
+        return {**parse_dirhb(work_dir), **result}
 
     def predict(
         self,

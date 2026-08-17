@@ -15,7 +15,6 @@ from typing import Any
 from elementzero.atlas_pin import REPO_ROOT
 from elementzero.b004 import B004_ID
 from elementzero.b004.protocol import (
-    BASIS_PROBE_SHELLS,
     MIN_COVERAGE_FRACTION,
     PAIRING_PROBE_DELTA,
     UNCERTAINTY_POLICY,
@@ -34,7 +33,6 @@ from elementzero.physics_backends import (
     BACKEND_SKYRME,
 )
 from elementzero.physics_backends.adapters.hfbtho import (
-    BASIS_N_SHELLS,
     gogny_backend,
     skyrme_backend,
 )
@@ -63,18 +61,26 @@ def _backend(backend_id: str, functional: str, repo_root):
     raise ProtocolError(f"unknown B004 backend {backend_id}")
 
 
-def _hfbtho_probe(args) -> tuple[str, str, dict[str, Any]]:
-    """One (nuclide, variant) HFBTHO probe, run in its own directory."""
+def _probe(args) -> tuple[str, str, dict[str, Any]]:
+    """One (nuclide, variant) solve, run in its own directory.
+
+    The backend supplies both the solve and the parser, so a family's
+    output format never has to be guessed by the caller.
+    """
     backend, nuclide_id, variant, work_dir, vpair_n, vpair_p, shells = args
     z, n = parse_nuclide_id(nuclide_id)
-    backend.solve_one(
+    solved = backend.solve_one(
         NuclideIdentity.from_zn(z, n),
         work_dir=work_dir,
         vpair_n=vpair_n,
         vpair_p=vpair_p,
         shells=shells,
     )
-    return nuclide_id, variant, parse_hfbtho(work_dir)
+    parser = getattr(backend, "parse_run", None)
+    parsed = parser(work_dir) if parser is not None else parse_hfbtho(work_dir)
+    return nuclide_id, variant, {**parsed, **{
+        k: v for k, v in solved.items() if k in ("timed_out", "returncode")
+    }}
 
 
 def predict_family(
@@ -110,28 +116,32 @@ def predict_family(
             continue
         jobs.append(
             (backend, nuclide_id, "base", work_root / nuclide_id / "base",
-             vpair_n, vpair_p, BASIS_N_SHELLS)
+             vpair_n, vpair_p, backend.base_shells)
         )
         jobs.append(
             (backend, nuclide_id, "basis", work_root / nuclide_id / "basis",
-             vpair_n, vpair_p, BASIS_PROBE_SHELLS)
+             vpair_n, vpair_p, backend.probe_shells)
         )
         if vpair_n is not None:
             jobs.append(
                 (backend, nuclide_id, "pairing", work_root / nuclide_id / "pairing",
                  vpair_n + PAIRING_PROBE_DELTA, vpair_p + PAIRING_PROBE_DELTA,
-                 BASIS_N_SHELLS)
+                 backend.base_shells)
             )
 
     solved: dict[str, dict[str, Any]] = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-        for nuclide_id, variant, parsed in pool.map(_hfbtho_probe, jobs):
+        for nuclide_id, variant, parsed in pool.map(_probe, jobs):
             solved.setdefault(nuclide_id, {})[variant] = parsed
 
     rows: dict[str, Any] = {}
     convergence_records: list[dict[str, Any]] = []
-    from elementzero.physics_backends.adapters.hfbtho import BASIS_POLICY, _classify
+    from elementzero.physics_backends.adapters.hfbtho import _classify
     from elementzero.physics_backends.convergence import build_record
+
+    # Each family labels its own numerical policy; the shared classifier
+    # maps parsed output onto the common status vocabulary.
+    basis_policy = backend.basis_policy
 
     for nuclide_id in target_ids:
         z, n = parse_nuclide_id(nuclide_id)
@@ -144,7 +154,7 @@ def predict_family(
                 parameter_artifact_id=artifact["artifact_id"],
                 converged=False,
                 iterations=0,
-                basis_policy=BASIS_POLICY,
+                basis_policy=basis_policy,
                 retry_count=0,
                 failure_class="UNSUPPORTED_NUCLIDE",
                 output_hash=sha256_hex({"unsupported": nuclide_id}),
@@ -167,7 +177,7 @@ def predict_family(
             parameter_artifact_id=artifact["artifact_id"],
             converged=converged,
             iterations=int(base.get("iterations") or 0),
-            basis_policy=BASIS_POLICY,
+            basis_policy=basis_policy,
             retry_count=0,
             failure_class=failure,
             output_hash=base["output_hash"],
