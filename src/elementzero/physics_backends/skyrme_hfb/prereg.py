@@ -25,20 +25,48 @@ from elementzero.physics_backends.skyrme_hfb import (
     UPSTREAM_PATCH,
 )
 
-PREREG_ID = "ez-wo15b-skyrme-massfit-prereg-v2"
+PREREG_ID = "ez-wo15b-skyrme-massfit-prereg-v3"
 
-SUPERSEDES = "ez-wo15b-skyrme-massfit-prereg-v1"
+SUPERSEDES = "ez-wo15b-skyrme-massfit-prereg-v2"
 SUPERSEDE_REASON = (
-    "v1 declared the pairing box as (-500, -150) keV fm^3, which excluded "
-    "its own starting point: WO-15's REFIT_STRICT fit drove CpV0_1 to -140, "
-    "sitting on that earlier fit's box edge. The first sensitivity run "
-    "refused the baseline vector and aborted before a single solver "
-    "evaluation completed, so no result existed to tune toward. The pairing "
-    "bounds are corrected to (-500, -100), which still enforces the physical "
-    "constraint that pairing is attractive. This is a specification repair "
-    "made against zero evidence, not a bound widened to escape a fit — the "
-    "distinction the WO-15 pairing result turned on, and the reason the "
-    "correction is recorded here rather than applied silently"
+    "Two instrument defects, both found before any objective evaluation ran "
+    "and both corrected on mechanical grounds rather than on results.\n\n"
+    "v1 declared the pairing box as (-500, -150), which excluded its own "
+    "starting point: WO-15's REFIT_STRICT fit drove CpV0_1 to -140, on that "
+    "earlier fit's box edge. The first sensitivity run refused the baseline "
+    "and aborted before any solve completed. v2 corrected the box to "
+    "(-500, -100), still enforcing attractive pairing.\n\n"
+    "v2's sensitivity run then showed all six nuclear-matter parameters "
+    "moving binding energy by exactly 0.0 keV while every true coupling "
+    "moved it. hfbtho_unedf.f90 explains the exact zeros: use_INM defaults "
+    "to .False. and is set .True. only for the UNEDF-family functionals, so "
+    "for a (t,x)-defined force like SKM* the nuclear-matter quantities are "
+    "outputs computed from the couplings, never inputs. Writing them into "
+    "hfbtho_FUNCTIONAL.dat is inert. The equivalence check in the "
+    "READ_FUNCTIONAL qualification could not have caught this: feeding the "
+    "solver its own values reproduces its own answer whether or not it "
+    "reads them. Only the sensitivity probe distinguishes the two.\n\n"
+    "Switching the base to UNEDF0/1/2 would make the nuclear-matter "
+    "parameters live, and is refused: those parameterizations are 2010, "
+    "2012 and 2014, all post-freeze, so adopting one would trade blind "
+    "eligibility — the property under test — for accuracy.\n\n"
+    "v2 also probed with a proton-shell-biased set: four of six probes had "
+    "magic Z (20, 28, 50, 82), where proton pairing collapses, so CpV0_1 "
+    "measured 7.4 keV. That is a statement about the probe set, not about "
+    "the parameter. The v3 probe set carries four open-proton-shell "
+    "nuclides.\n\n"
+    "v3 therefore fits the couplings the solver actually reads — pairing, "
+    "surface and spin-orbit — and probes them where they can be seen."
+)
+
+# The finding that shapes v3, kept next to the code it constrains.
+INM_INERT_FINDING = (
+    "ez-wo15b-inm-inert-v1: with functional='SKM*' the HFBTHO build has "
+    "use_INM=.False., so RHO_NM, E_NM, K_NM, ASS_NM, LASS_NM and SMASS_NM "
+    "supplied through hfbtho_FUNCTIONAL.dat have no effect on the solution. "
+    "Measured: exactly 0.0 keV mean change across the probe set for all six, "
+    "against 3704 keV for CrDr_0. A fit over them would have wandered "
+    "freely and reported convergence"
 )
 
 # Physical bounds. Empirical ranges from the nuclear-matter literature,
@@ -58,11 +86,24 @@ PARAMETER_BOUNDS: dict[str, tuple[float, float]] = {
     "CrdJ_1": (-80.0, 20.0),         # isovector spin-orbit
 }
 
-# Tier definitions. S1 through S3 are nested, so freezing a tier is a
-# statement about how many degrees of freedom the data can support.
-TIER_S1 = ("CpV0_0", "CpV0_1", "E_NM", "ASS_NM")
-TIER_S2 = TIER_S1 + ("K_NM", "LASS_NM", "SMASS_NM")
-TIER_S3 = TIER_S2 + ("CrDr_0", "CrDr_1", "CrdJ_0", "RHO_NM")
+# Tiers over the couplings the solver actually consumes, grouped by
+# physics rather than by measured strength. Nested, so freezing a tier
+# states how many degrees of freedom the calibration set can support.
+# The nuclear-matter parameters are excluded because they are inert in
+# this build, not because they fitted badly — no fit has been run.
+TIER_S1 = ("CpV0_0", "CpV0_1")                       # pairing, WO-15's scope
+TIER_S2 = TIER_S1 + ("CrDr_0", "CrDr_1")             # + surface
+TIER_S3 = TIER_S2 + ("CrdJ_0", "CrdJ_1")             # + spin-orbit
+
+FITTABLE_PARAMETERS = TIER_S3
+INERT_PARAMETERS = (
+    "RHO_NM",
+    "E_NM",
+    "K_NM",
+    "ASS_NM",
+    "LASS_NM",
+    "SMASS_NM",
+)
 
 TIERS: dict[str, tuple[str, ...]] = {
     "S1": TIER_S1,
@@ -71,13 +112,17 @@ TIERS: dict[str, tuple[str, ...]] = {
 }
 
 # The selection rule, fixed here rather than after seeing sensitivities.
+# Half the probes have open proton shells. A set weighted toward magic Z
+# cannot see proton pairing at all, which is how v2 mismeasured CpV0_1.
 SENSITIVITY_PROBE_IDS = (
-    "Z20-N20",
-    "Z28-N32",
-    "Z50-N70",
-    "Z62-N88",
-    "Z82-N126",
-    "Z92-N146",
+    "Z20-N20",    # doubly magic
+    "Z24-N28",    # open Z, magic N
+    "Z44-N56",    # open Z, open N
+    "Z50-N70",    # magic Z, open N
+    "Z62-N88",    # open Z, open N, deformed
+    "Z66-N98",    # open Z, open N, deformed
+    "Z82-N126",   # doubly magic
+    "Z92-N146",   # open Z, open N, actinide
 )
 RELATIVE_STEP = 0.02
 IDENTIFIABILITY_MIN_KEV = 50.0
@@ -152,6 +197,9 @@ def build_preregistration() -> dict[str, Any]:
         "supersedes": SUPERSEDES,
         "supersede_reason": SUPERSEDE_REASON,
         "objective_evaluations_before_supersede": 0,
+        "inm_inert_finding": INM_INERT_FINDING,
+        "inert_parameters": list(INERT_PARAMETERS),
+        "fittable_parameters": list(FITTABLE_PARAMETERS),
         "baseline_source": BASELINE_SOURCE,
         "upstream_patch": UPSTREAM_PATCH,
         "parameter_names": list(INM_PARAMETER_NAMES),
