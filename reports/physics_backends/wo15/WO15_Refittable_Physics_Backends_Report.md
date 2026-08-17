@@ -72,11 +72,11 @@ Gate E, preregistered before scoring: B004 v1 is a characterization challenge. T
 
 ## 9. B004 results
 
-| family | coverage | MAE keV | RMSE keV | cov90 | cal err 90 |
-| --- | --- | --- | --- | --- | --- |
-| EZ-PHYS-COVARIANT-RHB-v1 | 13/14 | 3458.21 | 4083.37 | 0 | 0.9 |
-| EZ-PHYS-GOGNY-HFB-v1 | 14/14 | 7862.47 | 8686.73 | 0 | 0.9 |
-| EZ-PHYS-SKYRME-HFB-v1 | 14/14 | 9618.69 | 10699.2 | 0.0714286 | 0.828571 |
+| family | coverage | MAE keV | RMSE keV | cov90 | cal err 90 | sigma measured? |
+| --- | --- | --- | --- | --- | --- | --- |
+| EZ-PHYS-COVARIANT-RHB-v1 | 13/14 | 3458.21 | 4083.37 | 0 | 0.9 | no — 13 row(s) at the sigma floor |
+| EZ-PHYS-GOGNY-HFB-v1 | 14/14 | 7862.47 | 8686.73 | 0 | 0.9 | yes |
+| EZ-PHYS-SKYRME-HFB-v1 | 14/14 | 9618.69 | 10699.2 | 0.0714286 | 0.828571 | yes |
 
 Mean cross-family spread: 17501.5 keV, reported alongside — never inside — any single family's sigma.
 
@@ -91,6 +91,7 @@ The physics numbers are poor, and they are the headline a reader should carry aw
 - Blind-family mass errors are several MeV — roughly two orders of magnitude worse than the 150 keV legacy reference. SkM* and D1S were never calibrated as mass models, which is exactly why the interpretation was fixed in advance rather than after seeing this.
 - The most accurate backend here is the covariant DD-ME2 family, and it is precisely the one that is NOT blind-eligible: a 2005 fit scoring post-1995 targets. Its accuracy is a reference point, not evidence.
 - Calibration failed outright. Observed 90% intervals contain almost none of the truths, because the preregistered uncertainty policy measured only numerical and parameter components. The dominant error here is model discrepancy — the functional itself being wrong — and that term was deliberately not fitted, so the sigmas are far too narrow. This is the clearest single improvement for the next protocol version, and it must be learned from training-era residuals, never from B004 truth.
+- The covariant family's calibration columns are not a measurement at all. A review of this PR found that the sealing code accepted an uncertainty probe on the strength of a parsed energy alone. Auditing the retained solver output showed every one of its 13 larger-basis probes failed to converge and emitted no energy, so its numerical component was recorded as zero and each sealed sigma is the bare 1 keV floor. Its cov90 therefore describes the floor, not DD-ME2. The two blind-eligible families audit clean — 14/14 measured each — so the claim itself is unaffected. The seal is evidence and was not rewritten; see results/EZ-B004-v1/probe_validity_audit.json, and the probe rule ez-wo15-probe-validity-v1 now refuses a non-converged probe instead of reading it as zero spread.
 
 ## 10. Claim
 

@@ -389,17 +389,27 @@ def _markdown(
     lines += ["## 9. B004 results", ""]
     if scores:
         lines += [
-            "| family | coverage | MAE keV | RMSE keV | cov90 | cal err 90 |",
-            "| --- | --- | --- | --- | --- | --- |",
+            "| family | coverage | MAE keV | RMSE keV | cov90 | cal err 90 | "
+            "sigma measured? |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
         ]
         for backend_id, entry in scores["by_model"].items():
             metrics = entry["metrics"] or {}
+            provenance = entry.get("sigma_provenance") or {}
+            floor_only = provenance.get("n_sigma_floor_only")
+            if floor_only is None:
+                measured = "not audited"
+            elif floor_only:
+                measured = f"no — {floor_only} row(s) at the sigma floor"
+            else:
+                measured = "yes"
             lines.append(
                 f"| {backend_id} | {entry['n_predicted']}/{entry['n_target']} | "
                 f"{_fmt(metrics.get('MAE_keV'))} | "
                 f"{_fmt(metrics.get('RMSE_keV'))} | "
                 f"{_fmt(metrics.get('coverage_90'))} | "
-                f"{_fmt(metrics.get('calibration_error_90'))} |"
+                f"{_fmt(metrics.get('calibration_error_90'))} | "
+                f"{measured} |"
             )
         disagreement = scores["family_disagreement"]
         lines += [
@@ -443,6 +453,19 @@ def _markdown(
             "clearest single improvement for the next protocol version, and "
             "it must be learned from training-era residuals, never from "
             "B004 truth.",
+            "- The covariant family's calibration columns are not a "
+            "measurement at all. A review of this PR found that the sealing "
+            "code accepted an uncertainty probe on the strength of a parsed "
+            "energy alone. Auditing the retained solver output showed every "
+            "one of its 13 larger-basis probes failed to converge and emitted "
+            "no energy, so its numerical component was recorded as zero and "
+            "each sealed sigma is the bare 1 keV floor. Its cov90 therefore "
+            "describes the floor, not DD-ME2. The two blind-eligible families "
+            "audit clean — 14/14 measured each — so the claim itself is "
+            "unaffected. The seal is evidence and was not rewritten; see "
+            "results/EZ-B004-v1/probe_validity_audit.json, and the probe rule "
+            "ez-wo15-probe-validity-v1 now refuses a non-converged probe "
+            "instead of reading it as zero spread.",
             "",
         ]
     else:

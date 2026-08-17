@@ -21,12 +21,20 @@ from elementzero.b004 import (  # noqa: E402
     EXPERIMENT_RELPATH,
     RESULTS_RELPATH,
 )
+from elementzero.b004.adjudication import build_adjudication_records  # noqa: E402
+from elementzero.b004.bind import (  # noqa: E402
+    PREREG_BINDING_RULE,
+    SEAL_BINDING_RULE,
+    assert_adjudication_bound,
+    assert_target_manifest_bound,
+    seal_hash_from_commit,
+)
 from elementzero.b004.protocol import (  # noqa: E402
     MIN_COVERAGE_FRACTION,
     build_protocol,
 )
 from elementzero.b004.runs import (  # noqa: E402
-    SEALED_HASH_FILE,
+    SEALED_FILE,
     predict_family,
     score_b004,
     seal_predictions,
@@ -42,14 +50,8 @@ from elementzero.physics_backends import (  # noqa: E402
 )
 from elementzero.physics_backends.campaign import FAMILY_PARAMETERIZATION  # noqa: E402
 from elementzero.physics_backends.independence import (  # noqa: E402
-    build_adjudication,
     count_blind_families,
 )
-from elementzero.physics_backends.provenance import (  # noqa: E402
-    FIT_FREEZE_CUTOFF,
-    PARAMETERIZATIONS,
-)
-from elementzero.physics_backends.registry import ROSTER  # noqa: E402
 
 FITS_DIR = Path("reports/physics_backends/wo15/fits")
 EXPERIMENT = Path(EXPERIMENT_RELPATH)
@@ -65,53 +67,13 @@ def _load_artifacts() -> dict[str, dict]:
     return artifacts
 
 
-def _adjudications(artifacts: dict[str, dict]) -> list[dict]:
-    freeze_year = int(FIT_FREEZE_CUTOFF[:4])
-    records = []
-    solver_of = {b: ROSTER[b]["solver"] for b in artifacts}
-    for backend_id, artifact in sorted(artifacts.items()):
-        entry = ROSTER[backend_id]
-        shared_solver = sorted(
-            other
-            for other, solver in solver_of.items()
-            if other != backend_id and solver == entry["solver"]
-        )
-        parameterization = FAMILY_PARAMETERIZATION[backend_id]
-        records.append(
-            build_adjudication(
-                group_id=entry["physics_family"],
-                functional_class=entry["functional_class"],
-                interaction_or_lagrangian_class=entry[
-                    "interaction_or_lagrangian_class"
-                ],
-                solver=entry["solver"],
-                parameter_artifact=artifact["artifact_id"],
-                fit_freeze=artifact["freeze_id"],
-                shared_training_data=(
-                    ["AME1995 calibration set"] if artifact["provenance_class"]
-                    == "REFIT_STRICT" else []
-                ),
-                shared_parameters=[],
-                derived_from_family=None,
-                residual_parent=None,
-                provenance_class=artifact["provenance_class"],
-                parameterization_year=PARAMETERIZATIONS[parameterization][
-                    "publication_year"
-                ],
-                freeze_year=freeze_year,
-                shared_solver_with=shared_solver,
-            )
-        )
-    return records
-
-
 def cmd_prereg(args: argparse.Namespace) -> int:
     artifacts = _load_artifacts()
     if not artifacts:
         print("no parameter artifacts yet; run tools/run_wo15_fits.py first")
         return 1
     targets = select_targets(repo_root=".")
-    adjudications = _adjudications(artifacts)
+    adjudications = build_adjudication_records(artifacts)
     gate = count_blind_families(adjudications)
     freeze = read_json(FITS_DIR / "historical_fit_freeze.json")
     protocol = build_protocol(
@@ -189,7 +151,26 @@ def cmd_score(args: argparse.Namespace) -> int:
     protocol = read_json(EXPERIMENT / "PROTOCOL.json")
     targets = read_json(EXPERIMENT / "target_manifest.json")
     artifacts = _load_artifacts()
-    seal_hash = (RESULTS / SEALED_HASH_FILE).read_text(encoding="utf-8").strip()
+    sealed = read_json(RESULTS / SEALED_FILE)
+
+    # The expected seal hash comes from the committed blob, not from the
+    # companion file that sits next to the seal and moves with it.
+    seal_hash = seal_hash_from_commit(
+        ".", commit=args.seal_commit, relpath=f"{RESULTS.as_posix()}/{SEALED_FILE}"
+    )
+    assert_target_manifest_bound(
+        target_manifest=targets,
+        protocol=protocol,
+        sealed=sealed,
+        recomputed=select_targets(repo_root="."),
+    )
+    adjudications = read_json(EXPERIMENT / "independence_adjudication.json")
+    assert_adjudication_bound(
+        adjudication=adjudications,
+        protocol=protocol,
+        recomputed_records=build_adjudication_records(artifacts),
+    )
+
     unlock_truth(
         dest=RESULTS,
         expected_seal_hash=seal_hash,
@@ -204,7 +185,6 @@ def cmd_score(args: argparse.Namespace) -> int:
         canonical_json(scores) + "\n", encoding="utf-8"
     )
 
-    adjudications = read_json(EXPERIMENT / "independence_adjudication.json")
     blind_backends = {
         r["group_id"]
         for r in adjudications["records"]
@@ -236,6 +216,9 @@ def cmd_score(args: argparse.Namespace) -> int:
         "performance_interpretation": protocol["performance_interpretation"],
         "visual_stage_permission": "BADGE_PB_ONLY_NO_STAGE_PROMOTION",
         "seal_commit": args.seal_commit,
+        "seal_hash_from_commit": seal_hash,
+        "seal_binding_rule": SEAL_BINDING_RULE,
+        "prereg_binding_rule": PREREG_BINDING_RULE,
         "next_gate": (
             "WO-16 known-superheavy historical challenge"
             if claim == "MULTI_FAMILY_BLIND_EVIDENCE_ESTABLISHED"
@@ -258,7 +241,7 @@ def main() -> int:
     seal.add_argument("--workers", type=int, default=4)
     seal.add_argument("--skip-covariant", action="store_true")
     score = sub.add_parser("score")
-    score.add_argument("--seal-commit", default=None)
+    score.add_argument("--seal-commit", required=True)
     args = parser.parse_args()
     return {"prereg": cmd_prereg, "seal": cmd_seal, "score": cmd_score}[args.cmd](args)
 

@@ -421,7 +421,7 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python tools/ensure_atlas_pir.py
       - run: python -m pip install -e '.[dev]'
-      - run: python -m pytest -q tests/unit/test_wo15_physics_backends.py tests/integration/test_wo15_results.py -k "target_selection or truth_unavailable or unlock or sealed"
+      - run: python -m pytest -q tests/unit/test_wo15_physics_backends.py tests/integration/test_wo15_results.py -k "target_selection or truth_unavailable or unlock or sealed or binding or denominator or blind_eligibility or seal_hash or seal_commit or probe or work_directory"
 
   wo15-claim-firewall:
     runs-on: ubuntu-latest

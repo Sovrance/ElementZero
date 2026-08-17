@@ -14,6 +14,7 @@ from typing import Any
 
 from elementzero.atlas_pin import REPO_ROOT
 from elementzero.b004 import B004_ID
+from elementzero.b004.bind import assert_target_manifest_bound
 from elementzero.b004.protocol import (
     MIN_COVERAGE_FRACTION,
     PAIRING_PROBE_DELTA,
@@ -47,6 +48,51 @@ AME2020_RELPATH = "data/amdc/mass_1.mas20.txt"
 
 SIGMA_FLOOR_KEV = 1.0
 Z90, Z95, Z68 = 1.6448536269514722, 1.959963984540054, 0.9944578832097535
+
+# An uncertainty probe is evidence only when it converged. A probe that
+# stops at its iteration limit can still print a last-iterate energy, and
+# folding that into sigma reports a measurement that was never made.
+# A failed probe is recorded as failed; it is never read as zero spread.
+PROBE_MEASURED = "MEASURED"
+PROBE_NOT_APPLICABLE = "NOT_APPLICABLE"
+PROBE_NONCONVERGED = "PROBE_NONCONVERGED"
+PROBE_NO_ENERGY = "PROBE_NO_ENERGY"
+PROBE_MISSING = "PROBE_MISSING"
+SIGMA_MEASURED = "MEASURED"
+SIGMA_INCOMPLETE = "INCOMPLETE_PROBE_FAILURE"
+
+PROBE_POLICY = (
+    "ez-wo15-probe-validity-v1: an uncertainty component is recorded only "
+    "from a probe that classifies SOLVER_OK. A non-converged or energy-less "
+    "probe yields a null component and marks the row "
+    "INCOMPLETE_PROBE_FAILURE, so a failed probe can never be read as zero "
+    "uncertainty"
+)
+
+
+def _probe_component(
+    probe: dict[str, Any] | None,
+    *,
+    z: int,
+    n: int,
+    prediction: float,
+    required: bool,
+) -> tuple[float | None, str]:
+    """The spread this probe measured, or why it measured nothing."""
+    from elementzero.physics_backends.adapters.hfbtho import _classify
+
+    if probe is None:
+        return (None, PROBE_MISSING if required else PROBE_NOT_APPLICABLE)
+    status, _ = _classify(probe)
+    if status != SOLVER_OK:
+        return None, PROBE_NONCONVERGED
+    if probe.get("energy_MeV") is None:
+        return None, PROBE_NO_ENERGY
+    spread = abs(
+        mass_excess_keV_from_binding(z=z, n=n, binding_MeV=-probe["energy_MeV"])
+        - prediction
+    )
+    return spread, PROBE_MEASURED
 
 
 def _backend(backend_id: str, functional: str, repo_root):
@@ -198,33 +244,37 @@ def predict_family(
         prediction = mass_excess_keV_from_binding(
             z=z, n=n, binding_MeV=-base["energy_MeV"]
         )
-        numerical = 0.0
-        probe = entry.get("basis")
-        if probe and probe.get("energy_MeV") is not None:
-            numerical = abs(
-                mass_excess_keV_from_binding(
-                    z=z, n=n, binding_MeV=-probe["energy_MeV"]
-                )
-                - prediction
-            )
-        parameter = 0.0
-        probe_p = entry.get("pairing")
-        if probe_p and probe_p.get("energy_MeV") is not None:
-            parameter = abs(
-                mass_excess_keV_from_binding(
-                    z=z, n=n, binding_MeV=-probe_p["energy_MeV"]
-                )
-                - prediction
-            )
-        sigma = max((numerical**2 + parameter**2) ** 0.5, SIGMA_FLOOR_KEV)
+        numerical, numerical_status = _probe_component(
+            entry.get("basis"), z=z, n=n, prediction=prediction, required=True
+        )
+        parameter, parameter_status = _probe_component(
+            entry.get("pairing"),
+            z=z,
+            n=n,
+            prediction=prediction,
+            required=vpair_n is not None,
+        )
+        measured = [c for c in (numerical, parameter) if c is not None]
+        sigma = max(
+            sum(c**2 for c in measured) ** 0.5, SIGMA_FLOOR_KEV
+        )
+        sigma_status = (
+            SIGMA_MEASURED
+            if numerical_status == PROBE_MEASURED
+            and parameter_status in (PROBE_MEASURED, PROBE_NOT_APPLICABLE)
+            else SIGMA_INCOMPLETE
+        )
         rows[nuclide_id] = {
             "nuclide_id": nuclide_id,
             "solver_status": status,
             "prediction_keV": prediction,
             "binding_MeV": -base["energy_MeV"],
             "sigma_keV": sigma,
+            "sigma_status": sigma_status,
             "numerical_sigma_keV": numerical,
+            "numerical_probe_status": numerical_status,
             "parameter_sigma_keV": parameter,
+            "parameter_probe_status": parameter_status,
             "iterations": int(base.get("iterations") or 0),
             "convergence_record_id": record["convergence_record_id"],
         }
@@ -365,6 +415,34 @@ def _metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _sigma_provenance(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """How much of each family's sigma was actually measured.
+
+    A row whose sigma is exactly the floor carries no measured spread at
+    all, so any calibration statistic computed from it describes the
+    floor rather than the model. Reporting the count keeps a coverage
+    number from being read as a calibration result it is not.
+    """
+    floor_only = [
+        r
+        for r in rows
+        if abs(float(r["sigma_keV"]) - SIGMA_FLOOR_KEV) < 1e-12
+    ]
+    statuses: dict[str, int] = {}
+    for row in rows:
+        # Runs sealed before ez-wo15-probe-validity-v1 carry no status.
+        key = str(row.get("sigma_status", "UNRECORDED_PRE_PROBE_POLICY"))
+        statuses[key] = statuses.get(key, 0) + 1
+    return {
+        "n_rows": len(rows),
+        "n_sigma_floor_only": len(floor_only),
+        "sigma_floor_keV": SIGMA_FLOOR_KEV,
+        "sigma_status_counts": dict(sorted(statuses.items())),
+        "calibration_interpretable": len(rows) > 0 and not floor_only,
+        "probe_policy": PROBE_POLICY,
+    }
+
+
 def score_b004(
     *,
     dest: str | Path,
@@ -376,6 +454,11 @@ def score_b004(
     dest = Path(dest)
     root = Path(repo_root or REPO_ROOT)
     sealed = read_json(dest / SEALED_FILE)
+    # The coverage denominator comes from this manifest, so it is bound to
+    # the seal and the protocol before a single mass is read.
+    assert_target_manifest_bound(
+        target_manifest=target_manifest, protocol=protocol, sealed=sealed
+    )
     truth = {
         o.nuclide_id: o.mass_excess_keV
         for o in load_edition("AME2020", str(root / AME2020_RELPATH))
@@ -417,6 +500,7 @@ def score_b004(
             "n_predicted": len(scored_rows),
             "coverage_fraction": len(scored_rows) / n_target if n_target else 0.0,
             "metrics": _metrics(scored_rows) if scored_rows else None,
+            "sigma_provenance": _sigma_provenance(scored_rows),
             "by_stratum": _by_stratum(scored_rows),
             "per_target": sorted(
                 (
