@@ -412,6 +412,38 @@ def _markdown(
             "(only where both component masses are blind predictions of the "
             "same family).",
             "",
+            "### What this result does and does not say",
+            "",
+            "It would be easy to read "
+            "MULTI_FAMILY_BLIND_EVIDENCE_ESTABLISHED as a physics success. "
+            "It is not one, and the preregistered criterion never claimed to "
+            "be: it asks whether two independent, blind-eligible families "
+            "can produce sealed, converged, uncertainty-carrying predictions "
+            "on fresh post-freeze targets. They can. That is an "
+            "infrastructure and provenance result.",
+            "",
+            "The physics numbers are poor, and they are the headline a "
+            "reader should carry away:",
+            "",
+            "- Blind-family mass errors are several MeV — roughly two orders "
+            "of magnitude worse than the 150 keV legacy reference. SkM* and "
+            "D1S were never calibrated as mass models, which is exactly why "
+            "the interpretation was fixed in advance rather than after "
+            "seeing this.",
+            "- The most accurate backend here is the covariant DD-ME2 "
+            "family, and it is precisely the one that is NOT blind-eligible: "
+            "a 2005 fit scoring post-1995 targets. Its accuracy is a "
+            "reference point, not evidence.",
+            "- Calibration failed outright. Observed 90% intervals contain "
+            "almost none of the truths, because the preregistered "
+            "uncertainty policy measured only numerical and parameter "
+            "components. The dominant error here is model discrepancy — the "
+            "functional itself being wrong — and that term was deliberately "
+            "not fitted, so the sigmas are far too narrow. This is the "
+            "clearest single improvement for the next protocol version, and "
+            "it must be learned from training-era residuals, never from "
+            "B004 truth.",
+            "",
         ]
     else:
         lines += ["B004 was not scored in this build.", ""]

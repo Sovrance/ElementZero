@@ -201,10 +201,10 @@ Outputs: `element_progress_events.jsonl`, `element_table_state.json`, `element_t
 | Field | Value |
 | --- | --- |
 | Layout | `extended_200_project_v1` |
-| Events | 12373 |
+| Events | 12403 |
 | Generator | `visual-table-v0.1` |
-| State hash | `a6880118a43c2e55` |
-| SVG hash | `8b2dc7c848949df8` |
+| State hash | `0ff02080177dfb8d` |
+| SVG hash | `a7a2c0f69eb709a2` |
 
 Elements 119-200 are project placeholders, not official IUPAC placement. Prediction-only runs are never shown as validated. Visual states summarize project artifacts and do not constitute experimental discovery claims.
 <!-- ELEMENTZERO_VISUAL_TABLE_END -->
