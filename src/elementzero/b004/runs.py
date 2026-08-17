@@ -294,6 +294,17 @@ def unlock_truth(
     sealed = read_json(dest / SEALED_FILE)
     root = Path(repo_root or REPO_ROOT)
 
+    def _assert(table: dict[str, tuple[str, str]]) -> None:
+        for name, (got, want) in table.items():
+            if got != want:
+                raise ProtocolError(
+                    f"B004_CLAIM_INTEGRITY_FAILURE: {name} is {got}, expected "
+                    f"{want}; truth stays locked"
+                )
+
+    # Seal-side checks run first and the truth file is not so much as opened
+    # while any of them is outstanding. Hashing it early would mean touching
+    # the truth artifact on a run that is about to be refused.
     checks = {
         "prediction_seal_hash": (actual, expected_seal_hash),
         "recorded_seal_hash": (recorded, expected_seal_hash),
@@ -301,10 +312,6 @@ def unlock_truth(
         "target_identity_digest": (
             sealed["target_identity_digest"],
             protocol["target_identity_digest"],
-        ),
-        "truth_source_sha256": (
-            sha256_file(root / AME2020_RELPATH),
-            "e8599c6d7f724fac91934e59f1b9de8fb8f63e820f4b39456b790665ed2a3307",
         ),
     }
     for backend_id, artifact in sorted(artifacts.items()):
@@ -315,12 +322,13 @@ def unlock_truth(
             sealed["parameter_artifacts"][backend_id],
             artifact["artifact_id"],
         )
-    for name, (got, want) in checks.items():
-        if got != want:
-            raise ProtocolError(
-                f"B004_CLAIM_INTEGRITY_FAILURE: {name} is {got}, expected "
-                f"{want}; truth stays locked"
-            )
+    _assert(checks)
+
+    checks["truth_source_sha256"] = (
+        sha256_file(root / AME2020_RELPATH),
+        "e8599c6d7f724fac91934e59f1b9de8fb8f63e820f4b39456b790665ed2a3307",
+    )
+    _assert(checks)
     payload = {
         "truth_unlocked": True,
         "verified": {name: got for name, (got, _) in checks.items()},

@@ -229,17 +229,46 @@ def test_training_membership_exact():
 
 
 def test_calibration_membership_exact():
-    """The calibration set is deterministic and disjoint from B004."""
-    from elementzero.b004.targets import select_targets
-    from elementzero.physics_backends.campaign import prepare_campaign
+    """The calibration set is exact, freeze-admissible, and disjoint from B004.
 
-    campaign = prepare_campaign(repo_root=REPO_ROOT)
-    first = sorted(campaign["calibration"])
-    again = sorted(prepare_campaign(repo_root=REPO_ROOT)["calibration"])
-    assert first == again
-    assert campaign["objective"]["calibration_nuclide_ids"] == first
+    Decided from committed artifacts so CI can check it without the raw
+    AME1995 snapshot, which is deliberately not in the repository.
+    """
+    from elementzero.b004.targets import select_targets
+
+    fits = REPO_ROOT / "reports/physics_backends/wo15/fits"
+    if not (fits / "historical_fit_freeze.json").is_file():
+        pytest.skip("the WO-15 fit bundle is not committed in this tree")
+    freeze = json.loads(
+        (fits / "historical_fit_freeze.json").read_text(encoding="utf-8")
+    )
+    objective = json.loads(
+        (fits / "objective_manifest.json").read_text(encoding="utf-8")
+    )
+    calibration = freeze["calibration_nuclide_ids"]
+    assert calibration, "the freeze records no calibration membership"
+    assert objective["calibration_nuclide_ids"] == calibration
+
+    # Every calibration nuclide is inside the frozen evidence set.
+    chronology = json.loads(
+        (
+            REPO_ROOT / "reports/eligibility/wo13/historical_source_chronology.json"
+        ).read_text(encoding="utf-8")
+    )
+    eligible_1995 = set(chronology["sources"]["AME1995"]["eligible_nuclide_ids"])
+    assert set(calibration) <= eligible_1995
+
+    # And no B004 target ever entered the fit.
     targets = set(select_targets(repo_root=REPO_ROOT)["target_nuclide_ids"])
-    assert not targets & set(first), "a B004 target leaked into the fit set"
+    assert not targets & set(calibration), "a B004 target leaked into the fit set"
+
+    # With the raw snapshot present (local runs, heavy lane), the selection
+    # rule must still reproduce exactly what was committed.
+    if (REPO_ROOT / "data/amdc/mass_rmd.mas95").is_file():
+        from elementzero.physics_backends.campaign import prepare_campaign
+
+        campaign = prepare_campaign(repo_root=REPO_ROOT)
+        assert sorted(campaign["calibration"]) == calibration
 
 
 def test_b004_weights_training_only():
@@ -586,8 +615,18 @@ def test_b004_truth_unavailable_before_seal(tmp_path):
 
 
 def test_b004_unlock_rejects_tampering(tmp_path):
-    """Every governing hash is checked before truth is read."""
-    from elementzero.b004.runs import SEALED_FILE, SEALED_HASH_FILE, unlock_truth
+    """Every governing hash is checked before truth is read.
+
+    ``repo_root`` deliberately points at a tree with no AME2020 snapshot: a
+    refused unlock must fail on the seal hash without ever reaching for the
+    truth file, so this passes only while that ordering holds.
+    """
+    from elementzero.b004.runs import (
+        SEALED_FILE,
+        SEALED_HASH_FILE,
+        TRUTH_UNLOCK_FILE,
+        unlock_truth,
+    )
 
     (tmp_path / SEALED_FILE).write_text(
         json.dumps(
@@ -608,8 +647,9 @@ def test_b004_unlock_rejects_tampering(tmp_path):
             expected_seal_hash="wrong",
             protocol=protocol,
             artifacts={},
-            repo_root=REPO_ROOT,
+            repo_root=tmp_path,
         )
+    assert not (tmp_path / TRUTH_UNLOCK_FILE).exists()
 
 
 # --------------------------------------------------------------------------- #
