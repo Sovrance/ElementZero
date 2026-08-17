@@ -339,10 +339,21 @@ def main() -> int:
         print(
             f"threads={run['blas_threads']:<3} sha={str(run['sha256'])[:16]}  "
             f"bytes={'MATCH' if run['byte_identical_to_committed'] else 'DIFFER'}  "
-            f"verdicts={'MATCH' if run['verdicts_identical_to_committed'] else 'DIFFER'}  "
-            f"reldev v1={paths['v1']['observed_max_relative_deviation']:.2e} "
-            f"v2={paths['v2']['observed_max_relative_deviation']:.2e}"
+            f"verdicts={'MATCH' if run['verdicts_identical_to_committed'] else 'DIFFER'}"
         )
+        for block in ("v1", "v2"):
+            p = paths[block]
+            print(
+                f"    {block}: rel={p['observed_max_relative_deviation']:.2e} "
+                f"abs={p['observed_max_absolute_deviation']:.2e} "
+                f"(rtol={p['declared_rtol']:.0e} atol={p['declared_atol']:.0e}) "
+                f"-> {'WITHIN' if p['within_declared_tolerance'] else 'EXCEEDED'}"
+            )
+    # A relative deviation above rtol is not by itself a failure: on statistics
+    # that sit near zero the absolute term governs, which is the whole reason
+    # the rule is atol + rtol*|x| rather than rtol alone. `within_declared
+    # _tolerance` is the verdict; the two deviations are shown so the line can
+    # be audited rather than taken on trust.
     print(f"distinct byte streams : {len(distinct_streams)}")
     print(f"findings replay       : {'HOLDS' if findings_replay else 'BROKEN'}")
     print(f"byte replay           : {'HOLDS' if byte_replay_everywhere else 'BROKEN'}")
