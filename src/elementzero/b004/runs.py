@@ -60,6 +60,7 @@ PROBE_NO_ENERGY = "PROBE_NO_ENERGY"
 PROBE_MISSING = "PROBE_MISSING"
 SIGMA_MEASURED = "MEASURED"
 SIGMA_INCOMPLETE = "INCOMPLETE_PROBE_FAILURE"
+UNRECORDED_SIGMA_STATUS = "UNRECORDED_PRE_PROBE_POLICY"
 
 PROBE_POLICY = (
     "ez-wo15-probe-validity-v1: an uncertainty component is recorded only "
@@ -431,14 +432,45 @@ def _sigma_provenance(rows: list[dict[str, Any]]) -> dict[str, Any]:
     statuses: dict[str, int] = {}
     for row in rows:
         # Runs sealed before ez-wo15-probe-validity-v1 carry no status.
-        key = str(row.get("sigma_status", "UNRECORDED_PRE_PROBE_POLICY"))
+        key = str(row.get("sigma_status", UNRECORDED_SIGMA_STATUS))
         statuses[key] = statuses.get(key, 0) + 1
+
+    # Interpretability follows the recorded probe status, not the floor.
+    # A row whose numerical probe failed while its parameter probe
+    # measured something has a sigma above the floor and is still not a
+    # measurement of this family's uncertainty; using the floor as a
+    # proxy would report it as one.
+    incomplete = statuses.get(SIGMA_INCOMPLETE, 0)
+    unrecorded = statuses.get(UNRECORDED_SIGMA_STATUS, 0)
+
+    # Three states, not two. A failed probe is known-bad; a run sealed
+    # before the policy existed is unknown from the seal alone, and
+    # saying "not interpretable" would overstate what the seal shows.
+    if not rows or floor_only or incomplete:
+        interpretable: bool | None = False
+        basis = (
+            "a probe failed or a sigma sits at the floor, so the "
+            "calibration statistics describe the floor rather than the model"
+        )
+    elif unrecorded:
+        interpretable = None
+        basis = (
+            "sealed before ez-wo15-probe-validity-v1, so the seal records no "
+            "probe status; probe_validity_audit.json is the authority for "
+            "this run"
+        )
+    else:
+        interpretable = True
+        basis = "every row reports sigma_status=MEASURED"
     return {
         "n_rows": len(rows),
         "n_sigma_floor_only": len(floor_only),
+        "n_sigma_incomplete": incomplete,
+        "n_sigma_status_unrecorded": unrecorded,
         "sigma_floor_keV": SIGMA_FLOOR_KEV,
         "sigma_status_counts": dict(sorted(statuses.items())),
-        "calibration_interpretable": len(rows) > 0 and not floor_only,
+        "calibration_interpretable": interpretable,
+        "interpretability_basis": basis,
         "probe_policy": PROBE_POLICY,
     }
 

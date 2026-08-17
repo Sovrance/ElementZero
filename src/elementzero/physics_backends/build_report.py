@@ -397,10 +397,18 @@ def _markdown(
             metrics = entry["metrics"] or {}
             provenance = entry.get("sigma_provenance") or {}
             floor_only = provenance.get("n_sigma_floor_only")
+            incomplete = provenance.get("n_sigma_incomplete") or 0
+            interpretable = provenance.get("calibration_interpretable")
             if floor_only is None:
                 measured = "not audited"
             elif floor_only:
                 measured = f"no — {floor_only} row(s) at the sigma floor"
+            elif incomplete:
+                measured = f"no — {incomplete} row(s) with a failed probe"
+            elif interpretable is None:
+                # Sealed before the probe policy: the seal cannot say, so
+                # the separate audit is what answers this column.
+                measured = "yes (by audit)"
             else:
                 measured = "yes"
             lines.append(

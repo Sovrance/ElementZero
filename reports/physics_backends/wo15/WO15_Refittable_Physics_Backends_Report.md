@@ -75,8 +75,8 @@ Gate E, preregistered before scoring: B004 v1 is a characterization challenge. T
 | family | coverage | MAE keV | RMSE keV | cov90 | cal err 90 | sigma measured? |
 | --- | --- | --- | --- | --- | --- | --- |
 | EZ-PHYS-COVARIANT-RHB-v1 | 13/14 | 3458.21 | 4083.37 | 0 | 0.9 | no — 13 row(s) at the sigma floor |
-| EZ-PHYS-GOGNY-HFB-v1 | 14/14 | 7862.47 | 8686.73 | 0 | 0.9 | yes |
-| EZ-PHYS-SKYRME-HFB-v1 | 14/14 | 9618.69 | 10699.2 | 0.0714286 | 0.828571 | yes |
+| EZ-PHYS-GOGNY-HFB-v1 | 14/14 | 7862.47 | 8686.73 | 0 | 0.9 | yes (by audit) |
+| EZ-PHYS-SKYRME-HFB-v1 | 14/14 | 9618.69 | 10699.2 | 0.0714286 | 0.828571 | yes (by audit) |
 
 Mean cross-family spread: 17501.5 keV, reported alongside — never inside — any single family's sigma.
 

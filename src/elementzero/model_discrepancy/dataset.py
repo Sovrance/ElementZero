@@ -21,6 +21,7 @@ from elementzero.model_discrepancy.protocol import (
     FEATURE_POLICY_ID,
     features_for,
 )
+from elementzero.physics_backends.protocol import SOLVER_OK
 
 AME1995_RELPATH = "data/amdc/mass_rmd.mas95"
 CHRONOLOGY_RELPATH = "reports/eligibility/wo13/historical_source_chronology.json"
@@ -35,8 +36,46 @@ TRAINING_SET_RULE = (
 )
 
 
-def excluded_identities(*, repo_root: str | Path | None = None) -> dict[str, list[str]]:
-    """Every identity a training residual may not come from."""
+def _b002_blind_targets(root: Path) -> list[str]:
+    """B002's holdout lives in its region manifest, not in its seal.
+
+    The two WO-14 blind experiments store their target identities
+    differently, and reading B002's seal for a key it never had returns
+    nothing at all — which is the dangerous failure, because an empty
+    exclusion set looks exactly like a satisfied one.
+    """
+    import json
+
+    path = root / "experiments/EZ-B002-v2-real-blind/region_targets.json"
+    if not path.is_file():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    ids: set[str] = set()
+    for region_ids in payload["targets"].values():
+        ids |= set(region_ids)
+    return sorted(ids)
+
+
+def _b003_blind_targets(root: Path) -> list[str]:
+    import json
+
+    path = root / "results/EZ-B003-v2-real-blind/SEALED_PREDICTIONS.json"
+    if not path.is_file():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return sorted(payload["target_nuclide_ids"])
+
+
+def excluded_identities(
+    *, repo_root: str | Path | None = None, require_all: bool = True
+) -> dict[str, list[str]]:
+    """Every identity a training residual may not come from.
+
+    Each source is read from where that experiment actually records its
+    targets, and an empty result is an error rather than a silent pass:
+    a blind holdout that quietly fails to load is indistinguishable from
+    one that was honoured.
+    """
     import json
 
     root = Path(repo_root or REPO_ROOT)
@@ -48,16 +87,26 @@ def excluded_identities(*, repo_root: str | Path | None = None) -> dict[str, lis
             json.loads(b004.read_text(encoding="utf-8"))["target_nuclide_ids"]
         )
 
-    # WO-14's blind targets are the other set that must never be trained on:
-    # they are the evidence that the earlier blind claim was blind.
-    for experiment in ("EZ-B002-v2-real-blind", "EZ-B003-v2-real-blind"):
-        sealed = root / "results" / experiment / "SEALED_PREDICTIONS.json"
-        if not sealed.is_file():
-            continue
-        payload = json.loads(sealed.read_text(encoding="utf-8"))
-        ids = payload.get("target_nuclide_ids") or payload.get("nuclide_ids")
+    # WO-14's blind targets are the other set that must never be trained
+    # on: they are the evidence that the earlier blind claim was blind.
+    for experiment, loader in (
+        ("EZ-B002-v2-real-blind", _b002_blind_targets),
+        ("EZ-B003-v2-real-blind", _b003_blind_targets),
+    ):
+        ids = loader(root)
         if ids:
-            excluded[experiment] = sorted(ids)
+            excluded[experiment] = ids
+        elif require_all:
+            raise ProtocolError(
+                f"DISCREPANCY_EXCLUSION_EMPTY: no target identities loaded "
+                f"for {experiment}. An exclusion set that fails to load is "
+                f"not an exclusion set. {TRAINING_SET_RULE}"
+            )
+    if require_all and not excluded.get("EZ-B004-v1"):
+        raise ProtocolError(
+            "DISCREPANCY_EXCLUSION_EMPTY: no B004 target identities loaded; "
+            f"B004 is revealed truth and must be excluded. {TRAINING_SET_RULE}"
+        )
     return dict(sorted(excluded.items()))
 
 
@@ -82,6 +131,22 @@ def build_training_set(
     kept: list[dict[str, Any]] = []
     for row in sorted(rows, key=lambda r: r["nuclide_id"]):
         nuclide_id = row["nuclide_id"]
+        # A residual is only evidence if the solve behind it converged.
+        # WO-15's covariant probes showed how a last iterate parses just
+        # as cleanly as a converged one, so the status is required
+        # explicitly rather than inferred from the value being present.
+        if row.get("solver_status") != SOLVER_OK:
+            raise ProtocolError(
+                f"DISCREPANCY_TRAINING_UNCONVERGED: {nuclide_id} carries "
+                f"solver_status={row.get('solver_status')!r}; only "
+                f"{SOLVER_OK} solves may train a discrepancy model. "
+                f"{TRAINING_SET_RULE}"
+            )
+        if row.get("residual_keV") is None:
+            raise ProtocolError(
+                f"DISCREPANCY_TRAINING_NULL_RESIDUAL: {nuclide_id} has no "
+                "residual; a missing value is not a zero"
+            )
         if nuclide_id not in eligible_ids:
             raise ProtocolError(
                 f"DISCREPANCY_TRAINING_LEAK: {nuclide_id} is not "

@@ -929,3 +929,125 @@ def test_solver_work_directory_is_recreated_not_reused():
     source = inspect.getsource(runner.run_solver)
     assert "shutil.rmtree" in source
     assert "exist_ok=True" not in source
+
+
+# --------------------------------------------------------------------------- #
+# WO-15B discrepancy training firewall                                        #
+# --------------------------------------------------------------------------- #
+
+
+def test_every_blind_holdout_loads_into_the_exclusion_set():
+    """A holdout that fails to load looks exactly like one that was honoured."""
+    from elementzero.model_discrepancy.dataset import excluded_identities
+
+    if not (REPO_ROOT / "experiments/EZ-B002-v2-real-blind").is_dir():
+        pytest.skip("WO-14 experiments are not committed in this tree")
+    excluded = excluded_identities(repo_root=REPO_ROOT)
+    # B002 records its targets in a region manifest, B003 in its seal, and
+    # B004 in its target manifest. All three must arrive.
+    for experiment in (
+        "EZ-B002-v2-real-blind",
+        "EZ-B003-v2-real-blind",
+        "EZ-B004-v1",
+    ):
+        assert excluded.get(experiment), f"{experiment} contributed no ids"
+    assert len(excluded["EZ-B002-v2-real-blind"]) == 60
+
+
+def test_b002_holdout_cannot_enter_discrepancy_training():
+    """The leak the exclusion set exists to prevent."""
+    from elementzero.model_discrepancy.dataset import (
+        build_training_set,
+        excluded_identities,
+    )
+
+    if not (REPO_ROOT / "experiments/EZ-B002-v2-real-blind").is_dir():
+        pytest.skip("WO-14 experiments are not committed in this tree")
+    excluded = excluded_identities(repo_root=REPO_ROOT)
+    chronology = json.loads(
+        (
+            REPO_ROOT / "reports/eligibility/wo13/historical_source_chronology.json"
+        ).read_text(encoding="utf-8")
+    )
+    eligible = set(chronology["sources"]["AME1995"]["eligible_nuclide_ids"])
+    leaky = [
+        i for i in excluded["EZ-B002-v2-real-blind"] if i in eligible
+    ]
+    assert leaky, "expected B002 identities inside the AME1995 freeze"
+    with pytest.raises(ProtocolError, match="DISCREPANCY_TRAINING_LEAK"):
+        build_training_set(
+            family_id="skyrme_hfb_edf",
+            freeze_id="ez-wo15-historical-fit-freeze-v1",
+            rows=[
+                {
+                    "nuclide_id": leaky[0],
+                    "residual_keV": 1234.0,
+                    "solver_status": SOLVER_OK,
+                }
+            ],
+            eligible_ids=eligible,
+            excluded=excluded,
+            repo_root=REPO_ROOT,
+        )
+
+
+def test_unconverged_residual_cannot_train_a_discrepancy_model():
+    from elementzero.model_discrepancy.dataset import build_training_set
+
+    with pytest.raises(ProtocolError, match="DISCREPANCY_TRAINING_UNCONVERGED"):
+        build_training_set(
+            family_id="skyrme_hfb_edf",
+            freeze_id="f",
+            rows=[
+                {
+                    "nuclide_id": "Z50-N70",
+                    "residual_keV": 1000.0,
+                    "solver_status": SOLVER_NONCONVERGED,
+                }
+            ],
+            eligible_ids={"Z50-N70"},
+            excluded={},
+            repo_root=REPO_ROOT,
+        )
+
+
+def test_incomplete_probe_row_is_not_reported_as_interpretable():
+    """Sigma above the floor is not proof the uncertainty was measured."""
+    from elementzero.b004.runs import (
+        SIGMA_INCOMPLETE,
+        SIGMA_MEASURED,
+        _sigma_provenance,
+    )
+
+    # Numerical probe failed, parameter probe measured 400 keV: sigma is
+    # well clear of the floor, so a floor-based check would pass it.
+    incomplete = _sigma_provenance(
+        [
+            {
+                "sigma_keV": 400.0,
+                "sigma_status": SIGMA_INCOMPLETE,
+                "numerical_sigma_keV": None,
+                "parameter_sigma_keV": 400.0,
+            }
+        ]
+    )
+    assert incomplete["n_sigma_floor_only"] == 0
+    assert incomplete["n_sigma_incomplete"] == 1
+    assert incomplete["calibration_interpretable"] is False
+
+    # A run sealed before the policy is unknown, not known-bad.
+    unrecorded = _sigma_provenance([{"sigma_keV": 400.0}])
+    assert unrecorded["calibration_interpretable"] is None
+    assert "probe_validity_audit" in unrecorded["interpretability_basis"]
+
+    measured = _sigma_provenance(
+        [
+            {
+                "sigma_keV": 400.0,
+                "sigma_status": SIGMA_MEASURED,
+                "numerical_sigma_keV": 300.0,
+                "parameter_sigma_keV": 265.0,
+            }
+        ]
+    )
+    assert measured["calibration_interpretable"] is True
