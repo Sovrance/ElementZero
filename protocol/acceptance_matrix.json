@@ -1,0 +1,68 @@
+{
+  "EZ-B004_calibration_gate": {
+    "std_z_min": 0.80,
+    "std_z_max": 1.25,
+    "abs_mean_z_max": 0.30,
+    "cal_error_90_max": 0.05,
+    "cal_error_95_max": 0.03,
+    "ks_statistic_max": 0.10,
+    "min_n": 20,
+    "below_min_n": "NOT_EVALUABLE",
+    "ks_note": "the gate uses the KS statistic, not its p-value: a p-value threshold tightens as n grows, which would punish a larger benchmark for being larger",
+    "on_failure": "excluded from scoring with failure class recorded; never silently down-weighted, never published as point metrics without sigma",
+    "failure_classes": ["UNCERTAINTY_OVERDISPERSED", "UNCERTAINTY_UNDERDISPERSED", "MEAN_FUNCTION_BIASED"]
+  },
+  "replay_tolerances": {
+    "rule": "|reference - candidate| <= atol + rtol * |candidate|",
+    "atol": 1.0e-6,
+    "atol_note": "gate statistics that sit near zero or are suprema over an order statistic (mean_z, cal_error_90/95, pit_ks_d) are only meaningful on an absolute scale; a pure relative tolerance judges them on the wrong scale. Every EZ-B004 threshold is stated to two decimals, so a 1e-6 floor is four orders of magnitude below anything that can move a verdict.",
+    "rtol_by_prediction_path": {
+      "optimizer_free": 1.0e-9,
+      "fitted": 1.0e-5
+    },
+    "rtol_note": "an optimizer-free path (optimizer=None) carries ULP noise only. A fitted path runs L-BFGS-B over the marginal likelihood and converges to a slightly different kernel when the gradient is perturbed at the last place, amplifying the same noise by about three orders of magnitude. Both figures leave roughly an order of magnitude of headroom over measurement.",
+    "verdict_fields_must_match_exactly": ["verdict", "dispersion_class", "failures", "n"],
+    "evidence": "reports/v2/replay_environment.json",
+    "checked_by": "scripts/diagnose_replay_determinism.py"
+  },
+  "gates": {
+    "G0_calibration": {
+      "requires": "every registry model passes EZ-B004 or is excluded with a reason",
+      "blocks": "all scoring"
+    },
+    "G1_backbone": {
+      "requires": "at least one physics-rich backbone (published table or historical refit) integrated and scored under the same protocol as the controls, beating the frozen v1 best MAE per epoch or explaining why not",
+      "reference_v1_best_MAE_keV": {"EZ-B001-A": 510.998, "EZ-B001-B": 543.412, "EZ-B001-C": 388.765},
+      "blocks": "any accuracy claim"
+    },
+    "G2_physics_independence": {
+      "requires": "at least two distinct physics-independence groups at tier A_STRICT_BLIND",
+      "current_state": "one (macroscopic_microscopic_frdm), per WO-13",
+      "resolution": "WO-205 historical refits; the blind definition is never weakened to compensate",
+      "blocks": "any model-form uncertainty or frontier physics claim"
+    },
+    "G3_localization": {
+      "requires": "a shell-capable model class present in EZ-B003-v2 and its rank_1_fraction reported, whatever it is",
+      "v1_reference": {"model": "EZ-SEMF-GP-RESIDUAL-v1", "sign": 1.0, "top_3": 0.8, "rank_1": 0.086},
+      "thresholds": "inherited from the frozen v1 criterion; NOT re-tuned",
+      "blocks": "any structure-discovery claim"
+    },
+    "G4_decay_fission_readiness": {
+      "requires": "EZ-B008 passed: blind reproduction of dominant decay mode, Q_alpha and alpha half-life order of magnitude for Z=104-118 with calibrated uncertainty",
+      "blocks": "the entire deferred superheavy/hyperheavy track"
+    }
+  },
+  "work_orders": {
+    "WO-201": ["calibration module", "EZ-B004 implemented", "learned kernel persisted", "environment pinned", "byte replay under pin"],
+    "WO-202": ["backbone injected not hard-coded", "SEMF demoted to control", "table provenance and fit-membership recorded", "beats v1 best or explains"],
+    "WO-203": ["kink-capable residual class", "discovery firewall intact", "rank-1 reported on frozen synthetic mechanics"],
+    "WO-204": ["blindness tier on every prediction", "combination inherits worst", "mixed leaderboard is a hard error"],
+    "WO-205": ["at least one EDF or mac-mic refit to a historical cutoff", "refit provenance enumerable", "second independence group at tier A"],
+    "WO-206": ["EZ-B007 prospective predictions sealed and hashed before the next AME edition"],
+    "WO-207": ["EZ-B002-v2 rerun with calibrated sigma and tiers"],
+    "WO-208": ["EZ-B003-v2 rerun with a shell-capable class; v1 thresholds unchanged"],
+    "WO-209": ["EZ-B009 measurement-date holdout with auditable date provenance"],
+    "WO-210": ["EZ-B005 multi-observable", "EZ-B006 derived-observable propagation with predictive covariance"],
+    "WO-211": ["v2 report sectioned by tier", "claim ceilings applied", "no best-model label"]
+  }
+}

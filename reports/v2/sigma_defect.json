@@ -1,0 +1,70 @@
+{
+  "conclusion": "The v1 configuration is UNCERTAINTY_OVERDISPERSED by roughly two orders of magnitude; the v2 configuration recovers std(z) near 1. The v1 mean function is largely unaffected, which is why the WO-11 hyperparameter grid saw an identical MAE for hp-no-normalize-y: the defect was confined to sigma, the one quantity Doctrine 4 makes load-bearing.",
+  "diagnostic": "ez-v2-sigma-defect-v1",
+  "environment": {
+    "numpy": "2.4.4",
+    "python": "3.12.3",
+    "scikit_learn": "1.8.0"
+  },
+  "root_cause": "ConstantKernel.constant_value is a VARIANCE, so the v1 amplitude is sqrt(1.0e6) = 1000. With normalize_y=True that amplitude multiplies unit-variance targets and sklearn rescales sigma by y_train_std, giving a prior predictive sigma of 1000 * y_train_std. optimizer=None meant the data could never correct it.",
+  "surface": {
+    "kind": "synthetic",
+    "n_points": 400,
+    "n_test": 120,
+    "n_train": 280,
+    "seed": 0,
+    "y_std_keV": 260.01504083253775
+  },
+  "v1": {
+    "calibration": {
+      "CRPS": 17993.596960188686,
+      "NLPD": 12.05059292013564,
+      "cal_error_90": 0.09999999999999998,
+      "cal_error_95": 0.050000000000000044,
+      "coverage_90": 1.0,
+      "coverage_95": 1.0,
+      "dispersion_class": "UNCERTAINTY_OVERDISPERSED",
+      "failures": [
+        "std_z 0.0013 < 0.8",
+        "cal_error_90 0.1000 > 0.05",
+        "cal_error_95 0.0500 > 0.03",
+        "pit_ks_d 0.4986 > 0.1"
+      ],
+      "mean_z": -3.8657998320754304e-05,
+      "module_version": "ez-uq-v2.0.0",
+      "n": 120,
+      "pit_ks_d": 0.4985823904728475,
+      "pit_ks_p": 5.9169036801449645e-27,
+      "std_z": 0.001268334821188697,
+      "verdict": "CALIBRATION_FAIL"
+    },
+    "kernel": "ConstantKernel(1.0e6, fixed) * RBF(8.0, fixed) + WhiteKernel(1.0e4, fixed), optimizer=None, normalize_y=True",
+    "median_abs_error_keV": 53.52062974652023,
+    "median_sigma_keV": 66829.97134221079,
+    "prior_sigma_bound_keV": 260015.04083253775,
+    "sigma_over_y_std": 257.02348267326784
+  },
+  "v2": {
+    "calibration": {
+      "CRPS": 29.44547508985173,
+      "NLPD": 5.368352531690748,
+      "cal_error_90": 0.025000000000000022,
+      "cal_error_95": 0.008333333333333415,
+      "coverage_90": 0.925,
+      "coverage_95": 0.9583333333333334,
+      "dispersion_class": "CALIBRATED",
+      "failures": [],
+      "mean_z": -0.034637777314394644,
+      "module_version": "ez-uq-v2.0.0",
+      "n": 120,
+      "pit_ks_d": 0.045465605851308044,
+      "pit_ks_p": 0.9613536130252728,
+      "std_z": 0.935472660177269,
+      "verdict": "CALIBRATION_PASS"
+    },
+    "kernel": "1.41**2 * RBF(length_scale=[19.4, 26.5, 131]) + WhiteKernel(noise_level=0.0381)",
+    "median_abs_error_keV": 36.56549027532341,
+    "median_sigma_keV": 54.46475075058082,
+    "sigma_over_y_std": 0.2094676930080316
+  }
+}

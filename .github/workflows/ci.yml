@@ -31,6 +31,36 @@ jobs:
       - run: python -m pip install -e '.[dev]'
       - run: python -m pytest -q tests/unit
 
+  # Protocol v2.0.0 runs on its own pinned stack. The v1 jobs above stay on
+  # 3.11: their artifacts were recorded there and are frozen, so moving them
+  # would be a protocol change, not a CI change.
+  v2-protocol-pin:
+    runs-on: ubuntu-latest
+    env:
+      # Part of the pin, not a performance setting. OpenBLAS sums threaded
+      # reductions in a thread-count-dependent order, so an unset thread count
+      # means the run is not byte-replayable even on its own host. See
+      # reports/v2/replay_environment.json.
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.3"
+      - run: python -m pip install --upgrade pip
+      # Versions come from protocol/protocol.json, not from pyproject: the
+      # protocol is the authority on what a v2 result was recorded under.
+      - run: python -m pip install "numpy==2.4.4" "scipy==1.18.0" "scikit-learn==1.8.0" "pytest>=8"
+      # An unpinned environment is a protocol violation, not a footnote.
+      - run: python tools/check_environment_pin.py
+      - run: python -m pytest -q tests/unit/test_v2_core.py
+      # Findings replay is portable and enforced; byte replay is per-host and
+      # is reported, not asserted. This step fails only if a verdict moves.
+      - run: python scripts/diagnose_replay_determinism.py --out /tmp/replay_environment.json
+
   atlas-contract:
     runs-on: ubuntu-latest
     steps:
