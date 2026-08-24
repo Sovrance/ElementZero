@@ -140,6 +140,26 @@ It matters now specifically because the historical runway is short: AME2020
 remains the current evaluation, the three historical epochs are already spent,
 and two of them have n < 80.
 
+### 8a. EZ-B007-v2 — filed (WO-206)
+
+Sealed against AME2020: 1008 targets, every record the edition flags estimated,
+trained on the 2550 measured records only. Tier A_STRICT_BLIND by construction.
+Seal sha256 4fd9940d4f9ba691..., artifacts under `experiments/EZ-B007-v2/`.
+
+The sealed model does NOT pass the gate, and that is recorded rather than
+smoothed over:
+
+    split              regime          std(z)   MAE keV   verdict
+    random_holdout     interpolation    0.914     403.0   FAIL (KS D 0.178)
+    frontier_holdout   extrapolation    2.824     884.4   FAIL (underdispersed)
+
+Calibration is qualified on two preregistered splits because a random holdout
+certifies sigma in a regime this forecast never operates in — every target lies
+off the edge of the measured chart. The frontier split governs eligibility. The
+forecast is sealed as a dated record and is not claim-eligible; no accuracy or
+interval statement may be made from it until it is scored against a real
+edition, and not then unless the gate is passed.
+
 ## 8b. EZ-B009 — Retrospective measurement-date holdout (new)
 
 Question: can the system predict masses that were unmeasured as of date T, using

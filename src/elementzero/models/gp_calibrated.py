@@ -67,6 +67,14 @@ NOISE_BOUNDS = (1.0e-8, 1.0e1)
 N_RESTARTS = 3
 RANDOM_STATE = 0
 
+# Above this training size, learning hyperparameters directly is impractical:
+# an exact GP likelihood is O(n^3) per evaluation, and L-BFGS with restarts calls
+# it many times. Measured on the v2 kernel: n=1200 takes ~124 s, and the ~n^3
+# scaling puts a full 2550-nuclide chart near 20 minutes PER FIT. See
+# `GPResidualV2.fit` for the two-stage path that keeps the hyperparameters
+# learned while making full-chart fits tractable.
+DEFAULT_HYPERPARAMETER_SUBSAMPLE = 600
+
 
 def build_kernel_v2() -> Any:
     """The v2 kernel: learnable amplitude, ARD length scales, learnable noise."""
@@ -144,6 +152,9 @@ class GPResidualV2:
     log_marginal_likelihood: float | None = None
     _fitted_ids: tuple[str, ...] = ()
     _y_train_std: float | None = None
+    hyperparameter_subsample: int | None = None
+    _n_hyperparameter_fit: int | None = None
+    _n_exact_fit: int | None = None
 
     def __post_init__(self) -> None:
         if not self.model_id:
@@ -155,7 +166,32 @@ class GPResidualV2:
         n: Sequence[int],
         mass_excess_keV: Sequence[float],
         nuclide_ids: Sequence[str] | None = None,
+        hyperparameter_subsample: int | None = None,
     ) -> GPResidualV2:
+        """Fit the residual GP, learning the kernel hyperparameters from data.
+
+        `hyperparameter_subsample` enables a two-stage fit for training sets too
+        large to optimize directly:
+
+            stage 1  learn theta by L-BFGS with restarts on a deterministic,
+                     chart-spanning subsample of size k
+            stage 2  exact GP fit on ALL n points with theta held at the learned
+                     value
+
+        This is NOT the v1 defect returning. v1 was broken because its kernel was
+        never fitted to anything: the amplitude was a hand-set constant that was
+        inconsistent with `normalize_y=True`, and `optimizer=None` meant no
+        amount of data could correct it. Here theta is genuinely learned by
+        optimization against real residuals; only the sample it is learned FROM
+        is reduced, and the mean and covariance are then computed exactly over
+        the full training set.
+
+        The cost it buys back is large and was measured, not assumed: the exact
+        likelihood is O(n^3) per evaluation, so a 2550-nuclide chart takes about
+        twenty minutes per fit directly, versus about thirty seconds two-stage.
+        `_n_hyperparameter_fit` and `_n_exact_fit` are both recorded in the
+        manifest so a reader can always see which sample set theta came from.
+        """
         z_arr = np.asarray(z, dtype=float)
         n_arr = np.asarray(n, dtype=float)
         y_arr = np.asarray(mass_excess_keV, dtype=float)
@@ -171,13 +207,47 @@ class GPResidualV2:
         residual = y_arr - physics
         x = features_zna(z_arr, n_arr)
 
-        self.gp = GaussianProcessRegressor(
-            kernel=build_kernel_v2(),
-            n_restarts_optimizer=N_RESTARTS,
-            normalize_y=True,
-            random_state=RANDOM_STATE,
+        subsample = (
+            hyperparameter_subsample
+            if hyperparameter_subsample is not None
+            else self.hyperparameter_subsample
         )
+        self.hyperparameter_subsample = subsample
+
+        if subsample is not None and subsample < x.shape[0]:
+            if subsample < 5:
+                raise ValueError("hyperparameter_subsample must be at least 5")
+            # Evenly spaced over the (Z, N)-sorted order, so the subsample spans
+            # the chart instead of clustering in one region. Deterministic: no
+            # RNG, so the learned kernel is reproducible from the inputs alone.
+            picks = np.unique(np.linspace(0, x.shape[0] - 1, subsample).astype(int))
+            learner = GaussianProcessRegressor(
+                kernel=build_kernel_v2(),
+                n_restarts_optimizer=N_RESTARTS,
+                normalize_y=True,
+                random_state=RANDOM_STATE,
+            ).fit(x[picks], residual[picks])
+            self._n_hyperparameter_fit = int(picks.size)
+            # Stage 2 holds the LEARNED theta fixed while solving exactly over
+            # every training point. optimizer=None here means "theta is already
+            # learned", not v1's "theta is whatever I typed".
+            self.gp = GaussianProcessRegressor(
+                kernel=learner.kernel_,
+                optimizer=None,
+                normalize_y=True,
+                random_state=RANDOM_STATE,
+            )
+        else:
+            self._n_hyperparameter_fit = int(x.shape[0])
+            self.gp = GaussianProcessRegressor(
+                kernel=build_kernel_v2(),
+                n_restarts_optimizer=N_RESTARTS,
+                normalize_y=True,
+                random_state=RANDOM_STATE,
+            )
+
         self.gp.fit(x, residual)
+        self._n_exact_fit = int(x.shape[0])
         self.learned_kernel = str(self.gp.kernel_)
         self.log_marginal_likelihood = float(
             self.gp.log_marginal_likelihood(self.gp.kernel_.theta)
@@ -212,6 +282,10 @@ class GPResidualV2:
             "noise_bounds": list(NOISE_BOUNDS),
             "n_restarts_optimizer": N_RESTARTS,
             "random_state": RANDOM_STATE,
+            "hyperparameter_subsample": self.hyperparameter_subsample,
+            "n_hyperparameter_fit": self._n_hyperparameter_fit,
+            "n_exact_fit": self._n_exact_fit,
+            "two_stage_fit": self._n_hyperparameter_fit != self._n_exact_fit,
             "normalize_y": True,
             "log_marginal_likelihood": self.log_marginal_likelihood,
             "training_residual_std_keV": self._y_train_std,

@@ -73,6 +73,21 @@ jobs:
       # is reported, not asserted. This step fails only if a verdict moves.
       - run: python scripts/diagnose_replay_determinism.py --out /tmp/replay_environment.json
 
+  # WO-206: the seal-then-score round trip. Runs on synthetic tables, never on
+  # the licensed AME snapshot, so it needs no download; the committed seal under
+  # experiments/EZ-B007-v2/ is the real artifact and is never rebuilt here.
+  b007-prospective-seal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python tools/ensure_atlas_pir.py
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q tests/unit/test_b007_prospective.py tests/integration/test_b007_seal_and_score.py
+
   atlas-contract:
     runs-on: ubuntu-latest
     steps:
