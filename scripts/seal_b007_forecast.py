@@ -29,11 +29,14 @@ silently regenerating it destroys exactly that.
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import platform
+import subprocess
 import sys
 
 import numpy as np
+import scipy
 import sklearn
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -51,6 +54,38 @@ from elementzero.eligibility.historical_sources import (  # noqa: E402
 from elementzero.evidence.hashing import canonical_json, sha256_file, sha256_hex  # noqa: E402
 from elementzero.experiments import b007_prospective as b007  # noqa: E402
 from elementzero.identity_meta import elementzero_commit  # noqa: E402
+
+PIN_CHECKER = REPO_ROOT / "tools" / "check_environment_pin.py"
+
+
+def assert_pinned_environment(allow_unpinned: bool) -> None:
+    """A seal produced off-pin is not a protocol-v2 result.
+
+    `forecast_protocol.json` records the environment the forecast was actually
+    fitted in, so the seal IS the run of record — not a portability probe. Under
+    a different scikit-learn the optimizer converges to a different kernel and
+    the sealed sigmas differ, which is the whole reason protocol.json pins the
+    stack and calls an unpinned environment a violation rather than a footnote.
+
+    Enforced here rather than left to discipline, because the first version of
+    this script was run off-pin by exactly the person who wrote the pin.
+    """
+    if allow_unpinned:
+        print("WARNING: --allow-unpinned set; this seal is NOT a protocol-v2 result")
+        return
+    result = subprocess.run(
+        [sys.executable, str(PIN_CHECKER)], capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        raise SystemExit(
+            f"{result.stdout}{result.stderr}\n"
+            "Refusing to seal off-pin. The seal records the environment it was "
+            "fitted in and is the protocol-v2 run of record, so an unpinned run "
+            "would be evidence of nothing.\n"
+            "Install the pinned stack (see docs/v2/README.md), export "
+            "OMP_NUM_THREADS=OPENBLAS_NUM_THREADS=MKL_NUM_THREADS=1, and retry."
+        )
+    print("environment pin: OK")
 
 
 def load_verified_ame2020() -> tuple[list, str, pathlib.Path]:
@@ -78,6 +113,12 @@ def main() -> int:
     parser.add_argument("--out", default="experiments/EZ-B007-v2")
     parser.add_argument("--allow-reseal", action="store_true")
     parser.add_argument(
+        "--allow-unpinned",
+        action="store_true",
+        help="produce a seal outside the protocol pin; the result is NOT a "
+        "protocol-v2 run of record and must not be committed as one",
+    )
+    parser.add_argument(
         "--next-edition-year",
         type=int,
         default=2025,
@@ -90,6 +131,8 @@ def main() -> int:
     if not out.is_absolute():
         out = REPO_ROOT / out
     sealed = out / "SEALED_PREDICTIONS.json"
+    # Checked before the pin, because "a seal already exists here" is the more
+    # specific problem and you should not need a pinned stack to be told it.
     if sealed.is_file() and not args.allow_reseal:
         raise SystemExit(
             f"refusing to overwrite an existing seal at {sealed}.\n"
@@ -97,6 +140,8 @@ def main() -> int:
             "answers existed; regenerating it silently destroys that.\n"
             "Pass --allow-reseal only if the existing seal was never committed."
         )
+
+    assert_pinned_environment(args.allow_unpinned)
 
     observations, raw_sha, raw_path = load_verified_ame2020()
     measured, extrapolated = b007.split_by_measurement_status(observations)
@@ -136,6 +181,21 @@ def main() -> int:
     model = b007.fit_forecast_model(measured)
     targets = b007.build_target_manifest(extrapolated, measured)
     predictions = b007.predict_targets(model, targets)
+
+    # If — and only if — the declared repair actually qualified, it has to be
+    # APPLIED, not merely credited. Granting eligibility from an adopted scaler
+    # while sealing raw sigmas would label the intervals conformal-repaired and
+    # store un-repaired ones, which is precisely the gate bypass EZ-B004 exists
+    # to prevent. Architecture section 5 also folds an adopted repair into model
+    # identity, so the model id changes with it.
+    model_id = model.model_id
+    if repair["adopted"]:
+        scale = float(repair["scaler"]["scale"])
+        for row in predictions:
+            row["predictive_sigma_keV"] *= scale
+            row["sigma_conformal_scale_applied"] = scale
+        model_id = f"{model_id}+CONF-v2"
+        print(f"conformal repair APPLIED to sealed sigmas: scale={scale:.3f}, id={model_id}")
     references = b007.build_reference_extrapolations(extrapolated)
     tier, tier_detail = b007.resolve_forecast_tier(next_edition_year=args.next_edition_year)
     print(f"blindness tier: {tier}")
@@ -216,7 +276,7 @@ def main() -> int:
                 else "any extrapolation beyond the scored target set"
             ),
         },
-        "model": model.manifest(),
+        "model": {**model.manifest(), "sealed_model_id": model_id},
         "code_identity": {
             "elementzero_version": __version__,
             "elementzero_commit": elementzero_commit(),
@@ -225,7 +285,10 @@ def main() -> int:
         "environment": {
             "python": platform.python_version(),
             "numpy": np.__version__,
+            "scipy": scipy.__version__,
             "scikit_learn": sklearn.__version__,
+            "blas_threads": os.environ.get("OMP_NUM_THREADS"),
+            "produced_under_protocol_pin": not args.allow_unpinned,
         },
         "scoring": {
             "script": "scripts/score_b007_forecast.py",
@@ -262,9 +325,15 @@ def main() -> int:
         "calibration_governing_split": b007.GOVERNING_SPLIT,
         "claim_eligible": claim_eligible,
         "conformal_repair_adopted": repair["adopted"],
+        "sealed_model_id": model_id,
         "sigma_provenance": (
             "raw model predictive sigma; the declared conformal repair was attempted "
-            "and NOT adopted" if not repair["adopted"] else "conformal-repaired sigma"
+            "and NOT adopted"
+            if not repair["adopted"]
+            else (
+                "conformal-repaired sigma: the adopted scale is applied to every "
+                "sealed predictive_sigma_keV and folded into the model id"
+            )
         ),
         "protocol_sha256": sha256_hex(canonical_json(protocol)),
         "targets_sha256": sha256_hex(canonical_json(target_manifest)),

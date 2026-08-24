@@ -144,7 +144,7 @@ and two of them have n < 80.
 
 Sealed against AME2020: 1008 targets, every record the edition flags estimated,
 trained on the 2550 measured records only. Tier A_STRICT_BLIND by construction.
-Seal sha256 4fd9940d4f9ba691..., artifacts under `experiments/EZ-B007-v2/`.
+Seal sha256 9dc6db809279646e..., artifacts under `experiments/EZ-B007-v2/`.
 
 The sealed model does NOT pass the gate, and that is recorded rather than
 smoothed over:

@@ -124,7 +124,7 @@ appear in the next AME edition (start from the NUBASE2020 extrapolated-only
 set). Hash and commit before the edition exists.
 Accept: sealed, hashed, and a scoring script that runs unattended against a
 future edition with no refit.
-Status: DONE. `experiments/EZ-B007-v2/`, seal sha256 4fd9940d4f9ba691...,
+Status: DONE. `experiments/EZ-B007-v2/`, seal sha256 9dc6db809279646e...,
 1008 targets (every AME2020 extrapolated record), tier A_STRICT_BLIND, scored by
 `scripts/score_b007_forecast.py`.
 

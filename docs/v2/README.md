@@ -95,7 +95,7 @@ experiments/EZ-B007-v2/                  the sealed prospective forecast
 ## WO-206 is filed
 
 The prospective forecast is sealed: `experiments/EZ-B007-v2/`, 1008 targets,
-tier `A_STRICT_BLIND`, seal sha256 `4fd9940d4f9ba691...`. It predicts every
+tier `A_STRICT_BLIND`, seal sha256 `9dc6db809279646e...`. It predicts every
 nuclide AME2020 flags as an extrapolation, and it was committed while AME2020 is
 still the current evaluation, which is the only time it could honestly be made.
 

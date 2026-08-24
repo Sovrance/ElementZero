@@ -19,6 +19,7 @@ import pytest
 from tests.helpers import toy_mass_excess, write_ame_table
 
 from elementzero.data.amdc.common import AME_MAS20_COLUMNS, EditionSpec
+from elementzero.evidence.hashing import canonical_json, sha256_hex
 
 pytestmark = pytest.mark.v2_protocol
 
@@ -71,24 +72,36 @@ def sealed(tmp_path, monkeypatch):
 
     seal_dir = tmp_path / "EZ-B007-test"
     seal_dir.mkdir()
+
+    # Companions are written through canonical_json and their hashes recorded in
+    # the seal, exactly as the real sealing script does, so the scorer's
+    # companion-hash guard is actually exercised rather than skipped.
+    protocol_doc = {
+        "blindness": tier_detail,
+        "claim_eligibility": {"claim_eligible": False},
+    }
+    target_doc = {"benchmark_id": b007.BENCHMARK_ID, "targets": targets}
+    for name, doc in (
+        ("forecast_protocol.json", protocol_doc),
+        ("reference_extrapolations.json", references),
+        ("targets.json", target_doc),
+    ):
+        (seal_dir / name).write_text(canonical_json(doc) + "\n")
+
     seal = {
         "experiment_id": b007.EXPERIMENT_ID,
         "forecast_policy_id": b007.FORECAST_POLICY_ID,
         "hash_rule": b007.SEAL_HASH_RULE,
         "blindness_tier": tier,
         "claim_eligible": False,
+        "protocol_sha256": sha256_hex(canonical_json(protocol_doc)),
+        "targets_sha256": sha256_hex(canonical_json(target_doc)),
+        "reference_extrapolations_sha256": sha256_hex(canonical_json(references)),
         "n_predictions": len(predictions),
         "predictions": predictions,
     }
     seal["seal_sha256"] = b007.seal_digest(seal)
     (seal_dir / "SEALED_PREDICTIONS.json").write_text(json.dumps(seal))
-    (seal_dir / "forecast_protocol.json").write_text(
-        json.dumps({"blindness": tier_detail, "claim_eligibility": {"claim_eligible": False}})
-    )
-    (seal_dir / "reference_extrapolations.json").write_text(json.dumps(references))
-    (seal_dir / "targets.json").write_text(
-        json.dumps({"benchmark_id": b007.BENCHMARK_ID, "targets": targets})
-    )
     return seal_dir, tmp_path
 
 
@@ -141,6 +154,59 @@ def test_scoring_refuses_a_tampered_seal(sealed, tmp_path):
     )
     assert proc.returncode != 0
     assert "seal digest mismatch" in (proc.stdout + proc.stderr)
+
+
+@pytest.mark.parametrize(
+    "companion,mutate",
+    [
+        ("reference_extrapolations.json", "baseline"),
+        ("forecast_protocol.json", "protocol"),
+    ],
+)
+def test_scoring_refuses_an_altered_companion_file(sealed, companion, mutate):
+    """The seal records companion hashes so they can be checked — check them.
+
+    The prediction object's self-digest does not cover the companion FILES. An
+    edited reference_extrapolations.json changes whether the model appears to
+    beat the AMDC baseline; an edited forecast_protocol.json is emitted as the
+    claim ceiling. Either would previously have passed with "seal verified".
+    """
+    seal_dir, work = sealed
+    path = seal_dir / companion
+    doc = json.loads(path.read_text())
+    if mutate == "baseline":
+        doc[0]["amdc_extrapolated_mass_excess_keV"] = 0.0
+    else:
+        doc["claim_eligibility"]["claim_eligible"] = True
+    path.write_text(json.dumps(doc))
+
+    future = write_ame_table(work / f"future_{mutate}.mas20", _rows(promote_edge=True), SPEC)
+    proc = _run(
+        "score_b007_forecast.py",
+        "--seal", str(seal_dir),
+        "--edition", str(future),
+        "--edition-id", "AME_TEST_FUTURE",
+        "--out", str(work / f"scoring_{mutate}"),
+    )
+    assert proc.returncode != 0
+    assert "does not match the hash recorded in the seal" in (proc.stdout + proc.stderr)
+
+
+def test_sealing_refuses_an_unpinned_environment(sealed):
+    """The seal is the protocol-v2 run of record, so it must be produced on-pin.
+
+    The first revision of this seal was fitted on python 3.11 / scikit-learn
+    1.9.0 by the same person who wrote the pin, which is why this is enforced in
+    code rather than left to discipline. The test asserts the refusal fires
+    whenever the running interpreter is off-pin; under the pinned stack the
+    script proceeds and is stopped by the reseal guard instead, which is the
+    other half of the same protection.
+    """
+    seal_dir, work = sealed
+    proc = _run("seal_b007_forecast.py", "--out", str(work / "fresh-seal"))
+    assert proc.returncode != 0
+    combined = proc.stdout + proc.stderr
+    assert "Refusing to seal off-pin" in combined or "ENVIRONMENT_PIN: OK" in combined
 
 
 def test_sealing_refuses_to_overwrite_an_existing_seal(sealed):

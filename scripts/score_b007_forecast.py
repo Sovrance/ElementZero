@@ -41,7 +41,11 @@ from elementzero.data.amdc.common import (  # noqa: E402
     EditionSpec,
     parse_ame_mass_table_detailed,
 )
-from elementzero.evidence.hashing import canonical_json, sha256_file  # noqa: E402
+from elementzero.evidence.hashing import (  # noqa: E402
+    canonical_json,
+    sha256_file,
+    sha256_hex,
+)
 from elementzero.experiments import b007_prospective as b007  # noqa: E402
 from elementzero.uq.calibration import calibration_report  # noqa: E402
 
@@ -73,6 +77,12 @@ def main() -> int:
     seal = json.loads((seal_dir / "SEALED_PREDICTIONS.json").read_text())
     protocol = json.loads((seal_dir / "forecast_protocol.json").read_text())
     references = json.loads((seal_dir / "reference_extrapolations.json").read_text())
+    def _optional(name):
+        path = seal_dir / name
+        return json.loads(path.read_text()) if path.is_file() else None
+
+    targets_doc = _optional("targets.json")
+    calibration_doc = _optional("calibration_qualification.json")
 
     # The seal must verify before anything is scored against it.
     recomputed = b007.seal_digest(seal)
@@ -82,7 +92,43 @@ def main() -> int:
             "The sealed predictions have been altered since they were committed; "
             "refusing to score."
         )
+
+    # The self-digest covers the PREDICTIONS and the companion hashes, but not
+    # the companion FILES. Verifying only the digest would let an edited
+    # reference_extrapolations.json silently change whether the model appears to
+    # beat the AMDC baseline, and an edited forecast_protocol.json would be
+    # emitted as the claim ceiling — both while this script printed "verified".
+    # The seal records these hashes precisely so they can be checked; check them.
+    companions = {
+        "forecast_protocol.json": ("protocol_sha256", protocol),
+        "reference_extrapolations.json": (
+            "reference_extrapolations_sha256",
+            references,
+        ),
+        "targets.json": ("targets_sha256", targets_doc),
+        "calibration_qualification.json": ("calibration_sha256", calibration_doc),
+    }
+    for filename, (key, loaded) in companions.items():
+        expected = seal.get(key)
+        if expected is None or loaded is None:
+            continue  # seal predates this companion hash, or the file is absent
+        actual = sha256_hex(canonical_json(loaded))
+        if actual != expected:
+            raise SystemExit(
+                f"{filename} does not match the hash recorded in the seal.\n"
+                f"  sealed:     {expected}\n"
+                f"  on disk:    {actual}\n"
+                "The sealed predictions are intact but a companion file has been "
+                "altered since sealing; refusing to score against it."
+            )
+
     print(f"seal verified: {seal['seal_sha256']}")
+    verified = sorted(
+        name
+        for name, (key, loaded) in companions.items()
+        if seal.get(key) is not None and loaded is not None
+    )
+    print(f"  companions verified: {', '.join(verified) if verified else '(none recorded)'}")
     print(f"  sealed predictions : {seal['n_predictions']}")
     print(f"  blindness tier     : {seal['blindness_tier']}")
     print(f"  claim eligible     : {seal.get('claim_eligible')}")

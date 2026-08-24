@@ -3,7 +3,7 @@
     protocol_version = 2.0.0
     work_order       = WO-206
     experiment_id    = EZ-B007-v2
-    seal_sha256      = 4fd9940d4f9ba6917524501dd16331025a9c1853d3f172f4b302e21401ef92bf
+    seal_sha256      = 9dc6db809279646e6c725985bf77014417cdac87c345957456b6b1a3a6df3d4d
     blindness_tier   = A_STRICT_BLIND
     claim_eligible   = NO  (fails EZ-B004 on the governing split)
 
@@ -43,6 +43,21 @@ WO-202.
     ground truth     ez-gt-policy-v1: evaluated_non_estimated_only
     model            EZ-SEMF-GP-RESIDUAL-v2 (SEMF backbone + learned-kernel GP)
     scoring          scripts/score_b007_forecast.py, no refit permitted
+    environment      python 3.12.3, numpy 2.4.4, scipy 1.18.0, scikit-learn 1.8.0,
+                     single-threaded BLAS — the protocol/protocol.json pin
+
+The seal is the protocol-v2 run of record, not a portability probe, so it is
+produced under the pin and `scripts/seal_b007_forecast.py` refuses to run
+otherwise. `forecast_protocol.json` records the environment it was actually
+fitted in, with `produced_under_protocol_pin: true`.
+
+An earlier revision of this seal was fitted on python 3.11 / scikit-learn 1.9.0
+and was rejected in review for that reason. Refitting under the pin moved the
+governing std(z) from 2.823577 to 2.823576 and the frontier MAE by 2.4e-6 keV —
+about one part in 1e6, which is exactly the fitted-path replay tolerance
+recorded in `protocol/acceptance_matrix.json`. The verdicts are unchanged. That
+the numbers barely moved is not a reason the pin was optional: it is a
+measurement that could only be made by doing it correctly.
 
 No "most likely" subset was selected. Excluding a target is indistinguishable,
 after the fact, from having predicted it badly, so every extrapolated nuclide is
