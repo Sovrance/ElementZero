@@ -25,6 +25,8 @@ Primary product is the installable **`elementzero`** package (`src/elementzero/`
 - Do not regenerate `reports/v2/sigma_defect.json` in place. It is the recorded reproduction of the v1 sigma defect; re-run it to a scratch path and compare with `scripts/diagnose_replay_determinism.py`. This is enforced, not advisory: `diagnose_v1_sigma.py` requires `--out` and refuses the recorded path without `--allow-overwrite-recorded`.
 - The v2 suite carries the `v2_protocol` marker. It runs twice by design: `v2-protocol-pin` (3.12.3 pinned) is the run of record, and the 3.11 `unit` job re-runs it as a portability probe. A failure in the probe means the code does not survive those library versions — worth knowing before bumping the pin, and not itself a protocol violation, since the pin governs recorded results rather than test execution.
 - No v2 model is wired into the benchmark runners or evidence graph yet (that is WO-202 onward). Nothing in `experiments/` or the frozen v1 reports may be rerun under a v2 id.
+- `experiments/EZ-B007-v2/` is a SEALED prospective forecast. Never regenerate it: `scripts/seal_b007_forecast.py` refuses to overwrite an existing seal without `--allow-reseal`, and the seal is evidence only because it predates the answers. Score it with `scripts/score_b007_forecast.py` when a new AME edition appears; that script refits nothing and verifies the seal digest first.
+- The AME tables under `data/` stay gitignored. `python tools/fetch_ame_sources.py AME2020` restores the pinned snapshot (AMDC is often unreachable; the AME2020 record already points at the IAEA mirror). CI never needs them: the v2 seal/score tests run on synthetic tables.
 
 ### Commands (canonical sources)
 

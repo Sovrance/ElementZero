@@ -85,12 +85,28 @@ src/elementzero/models/shell_aware.py    free-knot hinge residual, discovery fir
 src/elementzero/models/blindness.py      tiers, inheritance, independence groups
 tests/unit/test_v2_core.py               37 tests across all four modules
 tools/check_environment_pin.py           the pin, enforced
+
+src/elementzero/experiments/b007_prospective.py  WO-206 target set, gate, seal
+scripts/seal_b007_forecast.py            build the seal (refuses to overwrite)
+scripts/score_b007_forecast.py           score it later; refits nothing
+experiments/EZ-B007-v2/                  the sealed prospective forecast
 ```
 
-## Do this first
+## WO-206 is filed
 
-`WO-206`. Seal the prospective forecast for the next AME edition. AME2020 is
-still current and AME/NUBASE is issued every 4-5 years, so the window is open
-now and closes without warning. A prospective sealed forecast is immune by
-construction to every leakage concern in WO-13, and it cannot be manufactured
-retroactively.
+The prospective forecast is sealed: `experiments/EZ-B007-v2/`, 1008 targets,
+tier `A_STRICT_BLIND`, seal sha256 `9dc6db809279646e...`. It predicts every
+nuclide AME2020 flags as an extrapolation, and it was committed while AME2020 is
+still the current evaluation, which is the only time it could honestly be made.
+
+It is a record, not a claim. The sealed model **fails EZ-B004** on the governing
+frontier split — intervals about three times too narrow where the forecast
+actually operates — and the declared conformal repair was attempted before
+sealing and not adopted, because it trades a dispersion error for a worse
+distribution shape. Read `experiments/EZ-B007-v2/PREREGISTRATION.md` before
+citing anything from it.
+
+That failure is the sharpest argument yet for **WO-202**, the next work order: a
+control-class SEMF backbone cannot produce honest intervals at the chart's edge,
+and no residual wrapper repairs it. WO-202 now has a concrete target to beat,
+under an identical protocol, against a target set that is already frozen.

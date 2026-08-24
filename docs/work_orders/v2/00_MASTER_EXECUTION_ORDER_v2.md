@@ -124,6 +124,19 @@ appear in the next AME edition (start from the NUBASE2020 extrapolated-only
 set). Hash and commit before the edition exists.
 Accept: sealed, hashed, and a scoring script that runs unattended against a
 future edition with no refit.
+Status: DONE. `experiments/EZ-B007-v2/`, seal sha256 9dc6db809279646e...,
+1008 targets (every AME2020 extrapolated record), tier A_STRICT_BLIND, scored by
+`scripts/score_b007_forecast.py`.
+
+Result: the sealed model FAILS EZ-B004 on the governing (frontier) split and is
+recorded as NOT claim-eligible. std(z) = 2.82 against a [0.80, 1.25] band: the
+intervals are about three times too narrow exactly where the forecast operates.
+The declared conformal repair was attempted pre-seal and NOT adopted — it fixes
+dispersion (std(z) 2.24 -> 0.89) while making the PIT worse (KS 0.165 -> 0.336),
+because a multiplier cannot reshape a heavy-tailed error distribution. Sealed
+anyway, because the seal is a dated record rather than a claim and the
+prospective window closes permanently once the next edition publishes. See
+`experiments/EZ-B007-v2/PREREGISTRATION.md` section 5.
 Why first: AME/NUBASE is issued every 4-5 years and AME2020 is still current, so
 the window is open now and closes without warning. A prospective forecast is
 immune by construction to every leakage concern in WO-13 and cannot be
